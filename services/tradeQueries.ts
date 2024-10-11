@@ -97,14 +97,14 @@ export async function getSummaryData(filters: {
   }
 
   if (filters.day && filters.day !== 'All Days') {
-    queryText += ' AND close_date = $' + (queryParams.length + 1);
+    queryText += ' AND DATE(close_date) = DATE($' + (queryParams.length + 1) + ')';
     queryParams.push(filters.day);
   }
 
-  if (filters.account && filters.account !== 'ALL') {
+  /*if (filters.account && filters.account !== 'ALL') {
     queryText += ' AND account = $' + (queryParams.length + 1);
     queryParams.push(filters.account);
-  }
+  }*/
 
   if (filters.ticker && filters.ticker !== 'ALL') {
     queryText += ' AND underlying_symbol = $' + (queryParams.length + 1);
@@ -118,6 +118,24 @@ export async function getSummaryData(filters: {
     return result.rows[0];
   } catch (error) {
     console.error('Error in getSummaryData:', error);
+    throw error;
+  }
+}
+
+// Add this function to your existing tradeQueries.ts file
+export async function getOpenPositions(filters: any) {
+  let queryText = 'SELECT * FROM trades WHERE is_closed = false';
+  const queryParams: any[] = [];
+
+  // Add your filter logic here, similar to the getSummaryData function
+
+  try {
+    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    const result = await sql.query(queryText, queryParams);
+    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getOpenPositions:', error);
     throw error;
   }
 }

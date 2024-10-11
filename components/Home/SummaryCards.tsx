@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
 
 interface SummaryData {
@@ -10,12 +10,11 @@ interface SummaryData {
 }
 
 const SummaryCards: React.FC = () => {
-  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const { appliedFilters } = useFilters();
+  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
 
   useEffect(() => {
     const fetchSummaryData = async () => {
-      // Convert appliedFilters to a record of string key-value pairs
       const filterParams = Object.entries(appliedFilters).reduce((acc, [key, value]) => {
         acc[key] = value.toString();
         return acc;
@@ -35,6 +34,7 @@ const SummaryCards: React.FC = () => {
         });
       } catch (error) {
         console.error('Error fetching summary data:', error);
+        setSummaryData(null);
       }
     };
 
@@ -42,7 +42,7 @@ const SummaryCards: React.FC = () => {
   }, [appliedFilters]);
 
   if (!summaryData) {
-    return <div>Loading...</div>;
+    return <div>Loading summary data...</div>;
   }
 
   const formatCurrency = (value: number | null): string => {

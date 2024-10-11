@@ -5,6 +5,7 @@ import TabNavigation from '../Common/TabNavigation';
 import SummaryCards from './SummaryCards';
 import BarChart from './BarChart';
 import Calendar from './Calendar';
+import OpenPositions from '../Positions/OpenPositions';
 import { useFilters } from '../../contexts/FilterContext';
 
 const tabs = [
@@ -37,7 +38,7 @@ const HomeTab: React.FC = () => {
           </>
         );
       case 'open-positions':
-        return <div>Open Positions Content</div>;
+        return <OpenPositions />;
       case 'closed-positions':
         return <div>Closed Positions Content</div>;
       case 'stocks':
