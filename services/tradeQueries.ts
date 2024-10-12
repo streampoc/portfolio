@@ -306,3 +306,41 @@ export async function getDividendPositions(filters: any) {
     throw error;
   }
 }
+
+export async function getMonthlyProfitLoss(filters: {
+  year?: string | null,
+  ticker?: string | null
+}) {
+  let queryText = `
+    SELECT 
+      close_month, 
+      SUM(profit_loss) as total_profit_loss,
+      SUM(commissions) as total_commissions,
+      SUM(fees) as total_fees
+    FROM trades 
+    WHERE is_closed = true
+  `;
+  const queryParams: any[] = [];
+
+  if (filters.year && filters.year !== 'All Years') {
+    queryText += ' AND close_year = $' + (queryParams.length + 1);
+    queryParams.push(filters.year);
+  }
+
+  if (filters.ticker && filters.ticker !== 'ALL') {
+    queryText += ' AND underlying_symbol = $' + (queryParams.length + 1);
+    queryParams.push(filters.ticker);
+  }
+
+  queryText += ' GROUP BY close_month ORDER BY close_month';
+
+  try {
+    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    const result = await sql.query(queryText, queryParams);
+    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getMonthlyProfitLoss:', error);
+    throw error;
+  }
+}

@@ -3,13 +3,13 @@
 import React, { useState } from 'react';
 import TabNavigation from '../Common/TabNavigation';
 import SummaryCards from './SummaryCards';
-import BarChart from './BarChart';
 import Calendar from './Calendar';
 import OpenPositions from '../Positions/OpenPositions';
 import ClosedPositions from '../Positions/ClosedPositions';
 import Stocks from '../Stocks/Stocks';
 import Dividends from '../Dividends/Dividends';
 import { useFilters } from '../../contexts/FilterContext';
+import { MonthlyProfitLossChart } from './MonthlyProfitLossChart';
 
 const tabs = [
   { id: 'home', label: 'Home' },
@@ -31,8 +31,8 @@ const HomeTab: React.FC = () => {
           <>
             <SummaryCards />
             <div className="mt-8">
-              <h2 className="text-2xl font-bold mb-4">Profit/Loss Chart</h2>
-              <BarChart />
+              <h2 className="text-2xl font-bold mb-4">Monthly Profit/Loss</h2>
+              <MonthlyProfitLossChart />
             </div>
             <div className="mt-8">
               <h2 className="text-2xl font-bold mb-4">Monthly Calendar</h2>
