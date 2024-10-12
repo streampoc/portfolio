@@ -2,8 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
-import BarChart from '../Common/BarChart';
+import { Bar, BarChart, XAxis, YAxis, Tooltip, Legend, Cell } from 'recharts';
 import DataTable from '../Common/DataTable';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { ChartContainer } from '../ui/chart';
 
 interface ClosedPosition {
   id: number;
@@ -20,13 +22,38 @@ interface ClosedPosition {
   fees: string;
 }
 
+interface ClosedPositionBySymbol {
+  underlying_symbol: string;
+  total_profit_loss: number;
+  total_commissions: number;
+  total_fees: number;
+}
+
+interface ClosedPositionByMonth {
+  close_month: string;
+  total_profit_loss: number;
+  total_commissions: number;
+  total_fees: number;
+}
+
+const monthAbbreviations = [
+  'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+  'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+];
+
+const getMonthAbbreviation = (monthNumber: string): string => {
+  const index = parseInt(monthNumber, 10) - 1;
+  return monthAbbreviations[index] || monthNumber;
+};
+
 const ClosedPositions: React.FC = () => {
   const { appliedFilters } = useFilters();
   const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
+  const [chartData, setChartData] = useState<ClosedPositionBySymbol[] | ClosedPositionByMonth[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchClosedPositions = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       try {
         const filterParams = Object.entries(appliedFilters).reduce((acc, [key, value]) => {
@@ -35,31 +62,114 @@ const ClosedPositions: React.FC = () => {
         }, {} as Record<string, string>);
 
         const queryParams = new URLSearchParams(filterParams);
-        const response = await fetch('/api/getClosedPositions?' + queryParams);
-        if (!response.ok) {
+        
+        // Fetch closed positions
+        const closedPositionsResponse = await fetch('/api/getClosedPositions?' + queryParams);
+        if (!closedPositionsResponse.ok) {
           throw new Error('Failed to fetch closed positions');
         }
-        const data = await response.json();
-        setClosedPositions(data);
+        const closedPositionsData = await closedPositionsResponse.json();
+        setClosedPositions(closedPositionsData);
+
+        // Fetch data for the chart
+        let chartDataResponse;
+        if (appliedFilters.ticker !== 'ALL' && appliedFilters.month === 'ALL') {
+          chartDataResponse = await fetch('/api/getClosedPositionsByMonth?' + queryParams);
+        } else {
+          chartDataResponse = await fetch('/api/getClosedPositionsBySymbol?' + queryParams);
+        }
+        
+        if (!chartDataResponse.ok) {
+          throw new Error('Failed to fetch chart data');
+        }
+        const chartDataResult = await chartDataResponse.json();
+        setChartData(chartDataResult);
       } catch (error) {
-        console.error('Error fetching closed positions:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchClosedPositions();
+    fetchData();
   }, [appliedFilters]);
 
   if (isLoading) {
     return <div>Loading closed positions...</div>;
   }
 
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+  };
+
+  const chartConfig = {
+    total_profit_loss: {
+      label: 'Net Profit/Loss',
+      color: 'hsl(152, 57.5%, 37.6%)',
+    },
+    total_commissions: {
+      label: 'Commissions',
+      color: 'hsl(4, 90%, 58%)',
+    },
+    total_fees: {
+      label: 'Fees',
+      color: 'hsl(45, 93%, 47.5%)',
+    },
+  };
+
+  const isGroupedByMonth = appliedFilters.ticker !== 'ALL' && appliedFilters.month === 'ALL';
+
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Closed Positions</h2>
-      <BarChart data={closedPositions} />
-      <DataTable data={closedPositions} />
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {isGroupedByMonth ? 'Profit/Loss by Month' : 'Profit/Loss by Symbol'} {appliedFilters.ticker !== 'ALL' ? `for ${appliedFilters.ticker}` : ''}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer
+            className="h-[400px]"
+            config={chartConfig}
+          >
+            <BarChart data={chartData}>
+              <XAxis
+                dataKey={isGroupedByMonth ? "close_month" : "underlying_symbol"}
+                stroke="#888888"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={isGroupedByMonth ? getMonthAbbreviation : undefined}
+              />
+              <YAxis
+                stroke="#888888"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={formatCurrency}
+              />
+              <Tooltip
+                formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                labelFormatter={(label) => isGroupedByMonth ? `Month: ${getMonthAbbreviation(label)}` : `Symbol: ${label}`}
+              />
+              <Legend />
+              <Bar dataKey="total_profit_loss" name="Net Profit/Loss">
+                {chartData.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={entry.total_profit_loss >= 0 ? chartConfig.total_profit_loss.color : chartConfig.total_commissions.color}
+                  />
+                ))}
+              </Bar>
+              <Bar dataKey="total_commissions" fill={chartConfig.total_commissions.color} />
+              <Bar dataKey="total_fees" fill={chartConfig.total_fees.color} />
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+      <div className="mt-8">
+        <DataTable data={closedPositions} />
+      </div>
     </div>
   );
 };

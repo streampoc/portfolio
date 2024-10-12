@@ -1,15 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts'
+import { Bar, BarChart, XAxis, YAxis, Tooltip, Legend, Cell } from 'recharts'
 import { useFilters } from '../../contexts/FilterContext'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { ChartContainer } from '../ui/chart'
 
 interface MonthlyData {
   close_month: string
   total_profit_loss: number
   total_commissions: number
   total_fees: number
+  net_profit: number
 }
 
 const monthAbbreviations = [
@@ -75,40 +77,60 @@ export function MonthlyProfitLossChart() {
     );
   }
 
+  const chartConfig = {
+    net_profit: {
+      label: 'Net Profit',
+      color: 'hsl(152, 57.5%, 37.6%)',
+    },
+    total_commissions: {
+      label: 'Commissions',
+      color: 'hsl(4, 90%, 58%)',
+    },
+    total_fees: {
+      label: 'Fees',
+      color: 'hsl(45, 93%, 47.5%)',
+    },
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Monthly Profit/Loss</CardTitle>
       </CardHeader>
-      <CardContent className="pb-4">
-        <div className="h-[400px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <XAxis
-                dataKey="close_month"
-                stroke="#888888"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="#888888"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={formatCurrency}
-              />
-              <Tooltip
-                formatter={(value: number, name: string) => [formatCurrency(value), name]}
-                labelFormatter={(label) => `Month: ${label}`}
-              />
-              <Legend />
-              <Bar dataKey="net_profit" name="Net Profit" fill="#8884d8" />
-              <Bar dataKey="total_commissions" name="Commissions" fill="#82ca9d" />
-              <Bar dataKey="total_fees" name="Fees" fill="#ffc658" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      <CardContent>
+        <ChartContainer className="h-[400px]" config={chartConfig}>
+          <BarChart data={data}>
+            <XAxis
+              dataKey="close_month"
+              stroke="#888888"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              stroke="#888888"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={formatCurrency}
+            />
+            <Tooltip
+              formatter={(value: number, name: string) => [formatCurrency(value), name]}
+              labelFormatter={(label) => `Month: ${label}`}
+            />
+            <Legend />
+            <Bar dataKey="net_profit" name="Net Profit">
+              {data.map((entry, index) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={entry.net_profit >= 0 ? chartConfig.net_profit.color : chartConfig.total_commissions.color}
+                />
+              ))}
+            </Bar>
+            <Bar dataKey="total_commissions" name="Commissions" fill={chartConfig.total_commissions.color} />
+            <Bar dataKey="total_fees" name="Fees" fill={chartConfig.total_fees.color} />
+          </BarChart>
+        </ChartContainer>
       </CardContent>
     </Card>
   )

@@ -344,3 +344,89 @@ export async function getMonthlyProfitLoss(filters: {
     throw error;
   }
 }
+
+// Add this function to your existing tradeQueries.ts file
+export async function getClosedPositionsBySymbol(filters: any) {
+  let queryText = `
+    SELECT 
+      underlying_symbol,
+      SUM(profit_loss) as total_profit_loss,
+      SUM(commissions) as total_commissions,
+      SUM(fees) as total_fees
+    FROM trades 
+    WHERE is_closed = true AND transaction_type = 'Trade'
+  `;
+  const queryParams: any[] = [];
+
+  if (filters.year && filters.year !== 'All Years') {
+    queryText += ' AND close_year = $' + (queryParams.length + 1);
+    queryParams.push(filters.year);
+  }
+
+  if (filters.month && filters.month !== 'ALL') {
+    queryText += ' AND close_month = $' + (queryParams.length + 1);
+    queryParams.push(filters.month);
+  }
+
+  if (filters.week && filters.week !== 'ALL') {
+    queryText += ' AND close_week = $' + (queryParams.length + 1);
+    queryParams.push(filters.week);
+  }
+
+  if (filters.day && filters.day !== 'All Days') {
+    queryText += ' AND DATE(close_date) = DATE($' + (queryParams.length + 1) + ')';
+    queryParams.push(filters.day);
+  }
+
+  if (filters.ticker && filters.ticker !== 'ALL') {
+    queryText += ' AND underlying_symbol = $' + (queryParams.length + 1);
+    queryParams.push(filters.ticker);
+  }
+
+  queryText += ' GROUP BY underlying_symbol ORDER BY total_profit_loss DESC';
+
+  try {
+    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    const result = await sql.query(queryText, queryParams);
+    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getClosedPositionsBySymbol:', error);
+    throw error;
+  }
+}
+
+export async function getClosedPositionsByMonth(filters: any) {
+  let queryText = `
+    SELECT 
+      close_month,
+      SUM(profit_loss) as total_profit_loss,
+      SUM(commissions) as total_commissions,
+      SUM(fees) as total_fees
+    FROM trades 
+    WHERE is_closed = true AND transaction_type = 'Trade'
+  `;
+  const queryParams: any[] = [];
+
+  if (filters.year && filters.year !== 'All Years') {
+    queryText += ' AND close_year = $' + (queryParams.length + 1);
+    queryParams.push(filters.year);
+  }
+
+  if (filters.ticker && filters.ticker !== 'ALL') {
+    queryText += ' AND underlying_symbol = $' + (queryParams.length + 1);
+    queryParams.push(filters.ticker);
+  }
+
+  queryText += ' GROUP BY close_month ORDER BY close_month';
+
+  try {
+    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    const result = await sql.query(queryText, queryParams);
+    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getClosedPositionsByMonth:', error);
+    throw error;
+  }
+}
