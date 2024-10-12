@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
 import { Bar, BarChart, XAxis, YAxis, Tooltip, Legend, Cell } from 'recharts';
-import DataTable from '../Common/DataTable';
+import { DataTable } from '../Common/DataTable';
+import { ColumnDef } from "@tanstack/react-table"
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { ChartContainer } from '../ui/chart';
 
@@ -94,6 +95,65 @@ const ClosedPositions: React.FC = () => {
     fetchData();
   }, [appliedFilters]);
 
+  const columns: ColumnDef<ClosedPosition>[] = [
+    {
+      accessorKey: "symbol",
+      header: "Symbol",
+    },
+    {
+      accessorKey: "underlying_symbol",
+      header: "Underlying Symbol",
+    },
+    {
+      accessorKey: "quantity",
+      header: "Quantity",
+    },
+    {
+      accessorKey: "open_price",
+      header: "Open Price",
+      cell: ({ row }) => {
+        const price = parseFloat(row.getValue("open_price"));
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(price);
+      },
+    },
+    {
+      accessorKey: "close_price",
+      header: "Close Price",
+      cell: ({ row }) => {
+        const price = parseFloat(row.getValue("close_price"));
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(price);
+      },
+    },
+    {
+      accessorKey: "profit_loss",
+      header: "Profit/Loss",
+      cell: ({ row }) => {
+        const pl = parseFloat(row.getValue("profit_loss"));
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          signDisplay: "always"
+        }).format(pl);
+      },
+    },
+    {
+      accessorKey: "open_date",
+      header: "Open Date",
+      cell: ({ row }) => new Date(row.getValue("open_date")).toLocaleDateString(),
+    },
+    {
+      accessorKey: "close_date",
+      header: "Close Date",
+      cell: ({ row }) => new Date(row.getValue("close_date")).toLocaleDateString(),
+    },
+  ];
+
   if (isLoading) {
     return <div>Loading closed positions...</div>;
   }
@@ -168,7 +228,7 @@ const ClosedPositions: React.FC = () => {
         </CardContent>
       </Card>
       <div className="mt-8">
-        <DataTable data={closedPositions} />
+        <DataTable columns={columns} data={closedPositions} />
       </div>
     </div>
   );

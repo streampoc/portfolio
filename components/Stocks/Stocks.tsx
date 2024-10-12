@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
 import BarChart from '../Common/BarChart';
-import DataTable from '../Common/DataTable';
+import { DataTable } from '../Common/DataTable';
+import { ColumnDef } from "@tanstack/react-table"
 
 interface StockPosition {
   id: number;
@@ -48,6 +49,40 @@ const Stocks: React.FC = () => {
     fetchStockPositions();
   }, [appliedFilters]);
 
+  const columns: ColumnDef<StockPosition>[] = [
+    {
+      accessorKey: "symbol",
+      header: "Symbol",
+    },
+    {
+      accessorKey: "underlying_symbol",
+      header: "Underlying Symbol",
+    },
+    {
+      accessorKey: "quantity",
+      header: "Quantity",
+    },
+    {
+      accessorKey: "open_price",
+      header: "Open Price",
+      cell: ({ row }) => {
+        const price = parseFloat(row.getValue("open_price"));
+        const formatted = new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(price);
+        return formatted;
+      },
+    },
+    {
+      accessorKey: "open_date",
+      header: "Open Date",
+      cell: ({ row }) => {
+        return new Date(row.getValue("open_date")).toLocaleDateString();
+      },
+    },
+  ];
+
   if (isLoading) {
     return <div>Loading stock positions...</div>;
   }
@@ -56,7 +91,7 @@ const Stocks: React.FC = () => {
     <div>
       <h2 className="text-2xl font-bold mb-4">Stock Positions</h2>
       <BarChart data={stockPositions} />
-      <DataTable data={stockPositions} />
+      <DataTable columns={columns} data={stockPositions} />
     </div>
   );
 };

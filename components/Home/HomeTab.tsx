@@ -31,7 +31,6 @@ const HomeTab: React.FC = () => {
           <>
             <SummaryCards />
             <div className="mt-8">
-              <h2 className="text-2xl font-bold mb-4">Monthly Profit/Loss</h2>
               <MonthlyProfitLossChart />
             </div>
             <div className="mt-8">

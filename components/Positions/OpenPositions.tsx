@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
 import BarChart from '../Common/BarChart';
-import DataTable from '../Common/DataTable';
+import { DataTable } from '../Common/DataTable';
+import { ColumnDef } from "@tanstack/react-table"
 
 interface OpenPosition {
   id: number;
@@ -48,6 +49,59 @@ const OpenPositions: React.FC = () => {
     fetchOpenPositions();
   }, [appliedFilters]);
 
+  const columns: ColumnDef<OpenPosition>[] = [
+    {
+      accessorKey: "symbol",
+      header: "Symbol",
+    },
+    {
+      accessorKey: "underlying_symbol",
+      header: "Underlying Symbol",
+    },
+    {
+      accessorKey: "quantity",
+      header: "Quantity",
+    },
+    {
+      accessorKey: "open_price",
+      header: "Open Price",
+      cell: ({ row }) => {
+        const price = parseFloat(row.getValue("open_price"));
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(price);
+      },
+    },
+    {
+      accessorKey: "open_date",
+      header: "Open Date",
+      cell: ({ row }) => new Date(row.getValue("open_date")).toLocaleDateString(),
+    },
+    {
+      accessorKey: "commissions",
+      header: "Commissions",
+      cell: ({ row }) => {
+        const commissions = parseFloat(row.getValue("commissions"));
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(commissions);
+      },
+    },
+    {
+      accessorKey: "fees",
+      header: "Fees",
+      cell: ({ row }) => {
+        const fees = parseFloat(row.getValue("fees"));
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(fees);
+      },
+    },
+  ];
+
   if (isLoading) {
     return <div>Loading open positions...</div>;
   }
@@ -56,7 +110,7 @@ const OpenPositions: React.FC = () => {
     <div>
       <h2 className="text-2xl font-bold mb-4">Open Positions</h2>
       <BarChart data={openPositions} />
-      <DataTable data={openPositions} />
+      <DataTable columns={columns} data={openPositions}/>
     </div>
   );
 };

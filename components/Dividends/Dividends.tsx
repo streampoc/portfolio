@@ -2,14 +2,15 @@
 
 import React, { useEffect, useState } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
-import BarChart from '../Common/BarChart';
-import DataTable from '../Common/DataTable';
+import { DataTable } from '../Common/DataTable';
+import { ColumnDef } from "@tanstack/react-table";
 
 interface DividendPosition {
   id: number;
   transaction_type: string;
   underlying_symbol: string;
   profit_loss: string;
+  close_date: string;
 }
 
 const Dividends: React.FC = () => {
@@ -32,14 +33,7 @@ const Dividends: React.FC = () => {
           throw new Error('Failed to fetch dividend positions');
         }
         const data = await response.json();
-        // Map the data to only include the fields we want
-        const filteredData = data.map((item: any) => ({
-          id: item.id,
-          transaction_type: item.transaction_type,
-          underlying_symbol: item.underlying_symbol,
-          profit_loss: item.profit_loss
-        }));
-        setDividendPositions(filteredData);
+        setDividendPositions(data);
       } catch (error) {
         console.error('Error fetching dividend positions:', error);
       } finally {
@@ -50,6 +44,34 @@ const Dividends: React.FC = () => {
     fetchDividendPositions();
   }, [appliedFilters]);
 
+  const columns: ColumnDef<DividendPosition>[] = [
+    {
+      accessorKey: "underlying_symbol",
+      header: "Symbol",
+    },
+    {
+      accessorKey: "transaction_type",
+      header: "Transaction Type",
+    },
+    {
+      accessorKey: "profit_loss",
+      header: "Amount",
+      cell: ({ row }) => {
+        const amount = parseFloat(row.getValue("profit_loss"));
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          signDisplay: "always"
+        }).format(amount);
+      },
+    },
+    {
+      accessorKey: "close_date",
+      header: "Date",
+      cell: ({ row }) => new Date(row.getValue("close_date")).toLocaleDateString(),
+    },
+  ];
+
   if (isLoading) {
     return <div>Loading dividend positions...</div>;
   }
@@ -57,8 +79,13 @@ const Dividends: React.FC = () => {
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Dividend Positions</h2>
-      <BarChart data={dividendPositions} />
-      <DataTable data={dividendPositions} />
+      <div className="mt-8">
+        <DataTable 
+          columns={columns} 
+          data={dividendPositions}
+          filterColumn="underlying_symbol"
+        />
+      </div>
     </div>
   );
 };
