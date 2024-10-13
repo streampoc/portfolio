@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
+import DataCard from '../Common/DataCard';
 
 interface SummaryData {
   total_profit_loss: number | null;
@@ -46,37 +47,37 @@ const SummaryCards: React.FC = () => {
   }
 
   const formatCurrency = (value: number | null): string => {
-    return (value || 0).toFixed(2);
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0);
   };
 
-  const netProfitLoss = (summaryData.total_profit_loss || 0) + (summaryData.total_commissions || 0) + (summaryData.total_fees || 0);
+  const netProfitLoss = (summaryData.total_profit_loss || 0) - (summaryData.total_commissions || 0) - (summaryData.total_fees || 0);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="bg-white p-4 rounded shadow">
-        <h3 className="text-lg font-semibold">Yearly Profit/Loss</h3>
-        <p className={`text-2xl font-bold ${summaryData.total_profit_loss && summaryData.total_profit_loss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          ${formatCurrency(summaryData.total_profit_loss)}
-        </p>
-      </div>
-      <div className="bg-white p-4 rounded shadow">
-        <h3 className="text-lg font-semibold">Total Commissions</h3>
-        <p className="text-2xl font-bold text-red-600">
-          ${formatCurrency(summaryData.total_commissions)}
-        </p>
-      </div>
-      <div className="bg-white p-4 rounded shadow">
-        <h3 className="text-lg font-semibold">Total Fees</h3>
-        <p className="text-2xl font-bold text-red-600">
-          ${formatCurrency(summaryData.total_fees)}
-        </p>
-      </div>
-      <div className="bg-white p-4 rounded shadow">
-        <h3 className="text-lg font-semibold">Net Profit/Loss</h3>
-        <p className={`text-2xl font-bold ${netProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          ${formatCurrency(netProfitLoss)}
-        </p>
-      </div>
+      <DataCard 
+        title="Yearly Profit/Loss" 
+        value={formatCurrency(summaryData.total_profit_loss)}
+        amount={summaryData.total_profit_loss || 0}
+        className="bg-white"
+      />
+      <DataCard 
+        title="Total Commissions" 
+        value={formatCurrency(summaryData.total_commissions)}
+        amount={(summaryData.total_commissions || 0)}
+        className="bg-white"
+      />
+      <DataCard 
+        title="Total Fees" 
+        value={formatCurrency(summaryData.total_fees)}
+        amount={(summaryData.total_fees || 0)}
+        className="bg-white"
+      />
+      <DataCard 
+        title="Net Profit/Loss" 
+        value={formatCurrency(netProfitLoss)}
+        amount={netProfitLoss}
+        className="bg-white"
+      />
     </div>
   );
 };
