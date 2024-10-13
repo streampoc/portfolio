@@ -83,7 +83,6 @@ const Dividends: React.FC = () => {
         <DataTable 
           columns={columns} 
           data={dividendPositions}
-          filterColumn="underlying_symbol"
         />
       </div>
     </div>
