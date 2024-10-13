@@ -2,8 +2,20 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useFilters } from '../contexts/FilterContext';
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
-const Sidebar = () => {
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+
+export function Sidebar({ className }: SidebarProps) {
   const { filters, setFilters, applyFilters } = useFilters();
   const [weeks, setWeeks] = useState<string[]>([]);
   const [days, setDays] = useState<string[]>(['All Days']);
@@ -97,44 +109,51 @@ const Sidebar = () => {
   };
 
   const renderSelect = (id: string, label: string, options: string[] | { value: string; label: string }[], value: string, onChange: (value: string) => void) => (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
-      <select
-        id={id}
-        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {options.map((option) => (
-          typeof option === 'string' ? (
-            <option key={option} value={option}>{option}</option>
-          ) : (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          )
-        ))}
-      </select>
+    <div className="space-y-1">
+      <label htmlFor={id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>
+      <Select onValueChange={onChange} value={value}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder={`Select ${label}`} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            typeof option === 'string' ? (
+              <SelectItem key={option} value={option}>{option}</SelectItem>
+            ) : (
+              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+            )
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 
   return (
-    <aside className="w-64 bg-gray-100 dark:bg-gray-800 p-4">
-      <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-200">Filters</h2>
-      <div className="space-y-4">
-        {renderSelect('account', 'Account', accounts, filters.account, (value) => handleFilterChange('account', value))}
-        {renderSelect('ticker', 'Ticker', tickers, filters.ticker, (value) => handleFilterChange('ticker', value))}
-        {renderSelect('year', 'Year', years, filters.year, (value) => handleFilterChange('year', value))}
-        {renderSelect('month', 'Month', months, filters.month, (value) => handleFilterChange('month', value))}
-        {renderSelect('week', 'Week', ['ALL', ...weeks], filters.week, (value) => handleFilterChange('week', value))}
-        {renderSelect('day', 'Day', days, filters.day, (value) => handleFilterChange('day', value))}
-        <button
-          onClick={applyFilters}
-          className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-        >
-          Apply Filters
-        </button>
+    <div className={cn("pb-12", className)}>
+      <div className="space-y-4 py-4">
+        <div className="px-3 py-2">
+          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">
+            Filters
+          </h2>
+          <ScrollArea className="h-[430px] px-4">
+            <div className="space-y-2">
+              {renderSelect('account', 'Account', accounts, filters.account, (value) => handleFilterChange('account', value))}
+              {renderSelect('ticker', 'Ticker', tickers, filters.ticker, (value) => handleFilterChange('ticker', value))}
+              {renderSelect('year', 'Year', years, filters.year, (value) => handleFilterChange('year', value))}
+              {renderSelect('month', 'Month', months, filters.month, (value) => handleFilterChange('month', value))}
+              {renderSelect('week', 'Week', ['ALL', ...weeks], filters.week, (value) => handleFilterChange('week', value))}
+              {renderSelect('day', 'Day', days, filters.day, (value) => handleFilterChange('day', value))}
+            </div>
+          </ScrollArea>
+        </div>
+        <div className="px-3 py-2">
+          <Button onClick={applyFilters} className="w-full" variant="secondary">
+            Apply Filters
+          </Button>
+        </div>
       </div>
-    </aside>
-  );
-};
+    </div>
+  )
+}
 
 export default Sidebar;
