@@ -69,6 +69,42 @@ export function DataTable<TData, TValue>({
     },
   })
 
+  const exportToCSV = () => {
+    // Get visible columns
+    const visibleColumns = table.getAllColumns().filter(column => column.getIsVisible());
+    
+    // Create header row
+    const headers = visibleColumns.map(column => column.id).join(',');
+    
+    // Create data rows
+    const rows = table.getFilteredRowModel().rows.map(row => 
+      visibleColumns.map(column => {
+        const cellValue = row.getValue(column.id);
+        // Handle commas and quotes in cell values
+        if (typeof cellValue === 'string' && (cellValue.includes(',') || cellValue.includes('"'))) {
+          return `"${cellValue.replace(/"/g, '""')}"`;
+        }
+        return cellValue;
+      }).join(',')
+    );
+    
+    // Combine headers and rows
+    const csv = [headers, ...rows].join('\n');
+    
+    // Create and trigger download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'export.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
+
   return (
     <div className="w-full">
       <div className="flex items-center py-4">
@@ -78,6 +114,9 @@ export function DataTable<TData, TValue>({
           onChange={(event) => table.setGlobalFilter(event.target.value)}
           className="max-w-sm"
         />
+        <Button onClick={exportToCSV} className="ml-4" variant="secondary">
+          Export CSV
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="secondary" className="ml-auto">
