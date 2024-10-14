@@ -1,5 +1,6 @@
 import React from 'react';
 import { Bar, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import CustomTooltip from './CustomTooltip';
 
 interface BarChartProps {
   data: any[];
@@ -95,8 +96,8 @@ const BarChart: React.FC<BarChartProps> = ({
           </>
         )}
         <Tooltip
-          formatter={formatTooltip}
-          labelFormatter={labelFormatter}
+          content={<CustomTooltip />}
+          cursor={{ fill: 'transparent' }} // This line removes the default overlay
         />
         <Bar 
           dataKey={yDataKey} 
