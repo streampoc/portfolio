@@ -65,7 +65,7 @@ const PieChart: React.FC<PieChartProps> = ({ data, colors, title, description })
   };
 
   return (
-    <Card className="bg-card text-card-foreground">
+    <Card className="bg-card text-card-foreground border-0">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {description && <CardDescription>{description}</CardDescription>}
@@ -93,12 +93,10 @@ const PieChart: React.FC<PieChartProps> = ({ data, colors, title, description })
             <Legend
               layout="vertical"
               align="right"
-              verticalAlign="top"
+              verticalAlign="middle"
               iconSize={10}
-              iconType="square"
+              iconType="circle"
               wrapperStyle={{
-                top: 0,
-                left: 0,
                 paddingLeft: '20px',
                 fontSize: '12px',
               }}

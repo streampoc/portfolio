@@ -11,7 +11,7 @@ interface LineChartProps {
   yAxisLabel?: string;
   formatXAxis?: (value: any) => string;
   formatYAxis?: (value: any) => string;
-  formatTooltip?: (value: any, name: string | number, props: any) => [string, string];
+  formatTooltip?: (value: any, name: string, props: any) => [string, string];
 }
 
 const LineChart: React.FC<LineChartProps> = ({
@@ -27,45 +27,17 @@ const LineChart: React.FC<LineChartProps> = ({
 }) => {
   return (
     <ResponsiveContainer width="100%" height={400}>
-      <RechartsLineChart
-        data={data}
-        margin={{
-          top: 20,
-          right: 30,
-          left: 50,
-          bottom: 30,
-        }}
-      >
+      <RechartsLineChart data={data}>
         <XAxis 
           dataKey={xDataKey} 
           tickFormatter={formatXAxis}
-          axisLine={{ stroke: '#E0E0E0' }}
-          tick={{ fill: '#666', fontSize: 12 }}
-          label={{ value: xAxisLabel, position: 'insideBottom', offset: -10, fill: '#666' }}
         />
         <YAxis 
           tickFormatter={formatYAxis}
-          axisLine={{ stroke: '#E0E0E0' }}
-          tick={{ fill: '#666', fontSize: 12 }}
-          label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', offset: -40, fill: '#666' }}
         />
-        <Tooltip 
-          content={<CustomTooltip />}
-          formatter={(value, name, props) => {
-            if (formatTooltip) {
-              return formatTooltip(value, name.toString(), props);
-            }
-            return [value, name.toString()];
-          }}
-        />
-        <Legend verticalAlign="top" height={36}/>
-        <Line
-          type="monotone"
-          dataKey={yDataKey}
-          stroke={color}
-          activeDot={{ r: 8 }}
-          dot={{ r: 4 }}
-        />
+        <Tooltip content={<CustomTooltip />} />
+        <Legend />
+        <Line type="monotone" dataKey={yDataKey} stroke={color} />
       </RechartsLineChart>
     </ResponsiveContainer>
   );

@@ -7,7 +7,6 @@ import PieChart from '../Common/PieChart';
 import LineChart from '../Common/LineChart';
 import { ColumnDef } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 interface DividendPosition {
   id: number;
@@ -25,7 +24,6 @@ interface GroupedDividend {
 interface MonthlyDividend {
   monthYear: string;
   total: number;
-  symbolBreakdown: { [key: string]: number };
 }
 
 const monthAbbreviations = [
@@ -88,33 +86,31 @@ const Dividends: React.FC = () => {
   }, [dividendPositions]);
 
   const monthlyData = useMemo(() => {
-    const grouped: Record<string, { total: number; symbolBreakdown: Record<string, number> }> = dividendPositions.reduce((acc, curr) => {
+    const grouped: Record<string, number> = dividendPositions.reduce((acc, curr) => {
       const date = new Date(curr.close_date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const amount = parseFloat(curr.profit_loss);
       
-      if (!acc[monthKey]) {
-        acc[monthKey] = { total: 0, symbolBreakdown: {} };
-      }
-      
-      acc[monthKey].total += amount;
-      acc[monthKey].symbolBreakdown[curr.underlying_symbol] = (acc[monthKey].symbolBreakdown[curr.underlying_symbol] || 0) + amount;
-      
+      acc[monthKey] = (acc[monthKey] || 0) + amount;
       return acc;
-    }, {} as Record<string, { total: number; symbolBreakdown: Record<string, number> }>);
+    }, {} as Record<string, number>);
 
     return Object.entries(grouped)
-      .map(([monthKey, data]) => {
+      .map(([monthKey, total]) => {
         const [year, month] = monthKey.split('-');
         return {
           monthYear: `${getMonthAbbreviation(month)} ${year}`,
-          total: Number(data.total.toFixed(2)),
-          symbolBreakdown: Object.fromEntries(
-            Object.entries(data.symbolBreakdown).map(([symbol, value]) => [symbol, Number(value.toFixed(2))])
-          )
+          total: Number(total.toFixed(2))
         };
       })
-      .sort((a, b) => a.monthYear.localeCompare(b.monthYear));
+      .sort((a, b) => {
+        const [aMonth, aYear] = a.monthYear.split(' ');
+        const [bMonth, bYear] = b.monthYear.split(' ');
+        if (aYear !== bYear) {
+          return parseInt(aYear) - parseInt(bYear);
+        }
+        return monthAbbreviations.indexOf(aMonth) - monthAbbreviations.indexOf(bMonth);
+      });
   }, [dividendPositions]);
 
   useEffect(() => {
@@ -154,11 +150,6 @@ const Dividends: React.FC = () => {
     "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40",
     "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40"
   ];
-
-  const handleExport = () => {
-    // Implement CSV export logic here
-    console.log('Exporting data...');
-  };
 
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -203,23 +194,15 @@ const Dividends: React.FC = () => {
               xAxisLabel="Month"
               yAxisLabel="Dividend Amount"
               formatYAxis={formatCurrency}
-              formatTooltip={(value: number, name: string | number, props: any) => {
+              formatTooltip={(value: number, name: string, props: any) => {
                 const formattedValue = formatCurrency(value);
-                const symbolBreakdown = props.payload.symbolBreakdown;
-                const breakdownString = Object.entries(symbolBreakdown)
-                  .map(([symbol, amount]) => `${symbol}: ${formatCurrency(amount as number)}`)
-                  .join('\n');
-                return [`${props.payload.monthYear}: ${formattedValue}\n\nBreakdown:\n${breakdownString}`, name.toString()];
+                return [`${props.payload.monthYear}: ${formattedValue}`, name];
               }}
             />
           </CardContent>
         </Card>
       </div>
       <div className="mt-8">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold">Dividend Details</h3>
-          <Button onClick={handleExport}>Export CSV</Button>
-        </div>
         <DataTable 
           columns={columns} 
           data={dividendPositions}
