@@ -1,14 +1,10 @@
 import { Metadata } from "next"
-import Image from "next/image"
-
 import { Sidebar } from "@/components/Sidebar"
 import HomeTab from "@/components/Home/HomeTab"
 import { FilterProvider } from '@/contexts/FilterContext'
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
 
 export const metadata: Metadata = {
@@ -19,19 +15,20 @@ export const metadata: Metadata = {
 export default function TradingDashboardPage() {
   return (
     <FilterProvider>
-      <div className="bg-background">
-        <div className="grid lg:grid-cols-5">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <Card className="col-span-4">
-              <CardContent className="pl-2">
+      <div className="bg-background min-h-screen flex flex-col">
+        <header className="p-4 bg-primary text-primary-foreground">
+          <h1 className="text-2xl font-bold">Trading Dashboard</h1>
+        </header>
+        <div className="flex flex-col lg:flex-row flex-grow">
+          <div className="w-full lg:w-1/5 p-4">
+            <Card className="h-full">
+              <CardContent className="p-4">
                 <Sidebar />
               </CardContent>
             </Card>
           </div>
-          <div className="col-span-3 lg:col-span-4 lg:border-l">
-            <div className="h-full px-4 py-6 lg:px-8">
-              <HomeTab />
-            </div>
+          <div className="w-full lg:w-4/5 p-4">
+            <HomeTab />
           </div>
         </div>
       </div>

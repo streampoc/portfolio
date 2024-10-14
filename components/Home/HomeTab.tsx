@@ -26,35 +26,36 @@ const HomeTab: React.FC = () => {
   const { filters } = useFilters();
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-6">Trading Dashboard</h1>
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+    <div className="h-full flex flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow">
         <TabNavigation tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-        <TabsContent value="home">
-          <SummaryCards />
-          <div className="mt-8">
-            <MonthlyProfitLossChart />
-          </div>
-          <div className="mt-8">
-            <h2 className="text-2xl font-bold mb-4">Monthly Calendar</h2>
-            <Calendar />
-          </div>
-        </TabsContent>
-        <TabsContent value="open-positions">
-          <OpenPositions />
-        </TabsContent>
-        <TabsContent value="closed-positions">
-          <ClosedPositions />
-        </TabsContent>
-        <TabsContent value="stocks">
-          <Stocks />
-        </TabsContent>
-        <TabsContent value="dividends">
-          <Dividends />
-        </TabsContent>
-        <TabsContent value="details">
-          <div>Details Content</div>
-        </TabsContent>
+        <div className="flex-grow overflow-auto mt-4">
+          <TabsContent value="home">
+            <SummaryCards />
+            <div className="mt-6">
+              <MonthlyProfitLossChart />
+            </div>
+            <div className="mt-6">
+              <h2 className="text-2xl font-bold mb-4">Monthly Calendar</h2>
+              <Calendar />
+            </div>
+          </TabsContent>
+          <TabsContent value="open-positions">
+            <OpenPositions />
+          </TabsContent>
+          <TabsContent value="closed-positions">
+            <ClosedPositions />
+          </TabsContent>
+          <TabsContent value="stocks">
+            <Stocks />
+          </TabsContent>
+          <TabsContent value="dividends">
+            <Dividends />
+          </TabsContent>
+          <TabsContent value="details">
+            <div>Details Content</div>
+          </TabsContent>
+        </div>
       </Tabs>
     </div>
   );

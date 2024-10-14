@@ -109,7 +109,7 @@ export function Sidebar({ className }: SidebarProps) {
   };
 
   const renderSelect = (id: string, label: string, options: string[] | { value: string; label: string }[], value: string, onChange: (value: string) => void) => (
-    <div className="space-y-1">
+    <div className="space-y-1 w-full">
       <label htmlFor={id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>
       <Select onValueChange={onChange} value={value}>
         <SelectTrigger className="w-full">
@@ -129,25 +129,23 @@ export function Sidebar({ className }: SidebarProps) {
   );
 
   return (
-    <div className={cn("pb-12", className)}>
-      <div className="space-y-4 py-4">
-        <div className="px-3 py-2">
-          <ScrollArea className="h-[430px] px-4">
-            <div className="space-y-2">
-              {renderSelect('account', 'Account', accounts, filters.account, (value) => handleFilterChange('account', value))}
-              {renderSelect('ticker', 'Ticker', tickers, filters.ticker, (value) => handleFilterChange('ticker', value))}
-              {renderSelect('year', 'Year', years, filters.year, (value) => handleFilterChange('year', value))}
-              {renderSelect('month', 'Month', months, filters.month, (value) => handleFilterChange('month', value))}
-              {renderSelect('week', 'Week', ['ALL', ...weeks], filters.week, (value) => handleFilterChange('week', value))}
-              {renderSelect('day', 'Day', days, filters.day, (value) => handleFilterChange('day', value))}
-            </div>
-          </ScrollArea>
+    <div className={cn("flex flex-col h-full", className)}>
+      <ScrollArea className="flex-grow">
+        <div className="space-y-4 p-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2">
+            {renderSelect('account', 'Account', accounts, filters.account, (value) => handleFilterChange('account', value))}
+            {renderSelect('ticker', 'Ticker', tickers, filters.ticker, (value) => handleFilterChange('ticker', value))}
+            {renderSelect('year', 'Year', years, filters.year, (value) => handleFilterChange('year', value))}
+            {renderSelect('month', 'Month', months, filters.month, (value) => handleFilterChange('month', value))}
+            {renderSelect('week', 'Week', ['ALL', ...weeks], filters.week, (value) => handleFilterChange('week', value))}
+            {renderSelect('day', 'Day', days, filters.day, (value) => handleFilterChange('day', value))}
+          </div>
         </div>
-        <div className="px-3 py-2">
-          <Button onClick={applyFilters} className="w-full" variant="secondary">
-            Apply Filters
-          </Button>
-        </div>
+      </ScrollArea>
+      <div className="p-4 mt-auto">
+        <Button onClick={applyFilters} className="w-full" variant="secondary">
+          Apply Filters
+        </Button>
       </div>
     </div>
   )
