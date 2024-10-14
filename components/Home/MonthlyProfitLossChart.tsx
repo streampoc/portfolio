@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bar, BarChart, XAxis, YAxis, Tooltip, Legend, Cell } from 'recharts'
 import { useFilters } from '../../contexts/FilterContext'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
-import { ChartContainer } from '../ui/chart'
+import BarChart from '../Common/BarChart'
 
 interface MonthlyData {
   close_month: string
@@ -27,6 +26,17 @@ const getMonthAbbreviation = (monthNumber: string): string => {
 export function MonthlyProfitLossChart() {
   const [data, setData] = useState<MonthlyData[]>([])
   const { appliedFilters } = useFilters()
+  const [isLargeScreen, setIsLargeScreen] = useState(false)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsLargeScreen(window.innerWidth >= 1024)
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -81,14 +91,7 @@ export function MonthlyProfitLossChart() {
     net_profit: {
       label: 'Net Profit',
       color: 'hsl(152, 57.5%, 37.6%)',
-    },
-    total_commissions: {
-      label: 'Commissions',
-      color: 'hsl(4, 90%, 58%)',
-    },
-    total_fees: {
-      label: 'Fees',
-      color: 'hsl(45, 93%, 47.5%)',
+      negativeColor: 'hsl(4, 90%, 58%)',
     },
   };
 
@@ -98,39 +101,31 @@ export function MonthlyProfitLossChart() {
         <CardTitle>Monthly Profit/Loss</CardTitle>
       </CardHeader>
       <CardContent>
-        <ChartContainer className="h-[400px]" config={chartConfig}>
-          <BarChart data={data}>
-            <XAxis
-              dataKey="close_month"
-              stroke="#888888"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              stroke="#888888"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={formatCurrency}
-            />
-            <Tooltip
-              formatter={(value: number, name: string) => [formatCurrency(value), name]}
-              labelFormatter={(label) => `Month: ${label}`}
-            />
-            <Legend />
-            <Bar dataKey="net_profit" name="Net Profit">
-              {data.map((entry, index) => (
-                <Cell 
-                  key={`cell-${index}`} 
-                  fill={entry.net_profit >= 0 ? chartConfig.net_profit.color : chartConfig.total_commissions.color}
-                />
-              ))}
-            </Bar>
-            <Bar dataKey="total_commissions" name="Commissions" fill={chartConfig.total_commissions.color} />
-            <Bar dataKey="total_fees" name="Fees" fill={chartConfig.total_fees.color} />
-          </BarChart>
-        </ChartContainer>
+        <BarChart
+          data={data}
+          xDataKey="close_month"
+          yDataKey="net_profit"
+          layout={isLargeScreen ? "horizontal" : "vertical"}
+          isLargeScreen={isLargeScreen}
+          formatXAxis={getMonthAbbreviation}
+          formatYAxis={formatCurrency}
+          formatTooltip={(value: number, name: string, props: any) => {
+            const formattedValue = formatCurrency(value);
+            const axisLabel = isLargeScreen
+              ? props.payload.close_month
+              : formattedValue;
+            const valueLabel = isLargeScreen 
+              ? formattedValue 
+              : props.payload.close_month;
+            return [`${valueLabel} (${axisLabel})`, name];
+          }}
+          labelFormatter={(label) => `Month: ${label}`}
+          barSize={isLargeScreen ? 20 : 15}
+          colors={{
+            positive: chartConfig.net_profit.color,
+            negative: chartConfig.net_profit.negativeColor,
+          }}
+        />
       </CardContent>
     </Card>
   )

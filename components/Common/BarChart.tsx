@@ -45,7 +45,7 @@ const BarChart: React.FC<BarChartProps> = ({
   };
 
   const chartHeight = isLargeScreen ? 400 : Math.max(400, data.length * 25);
-  const calculatedBarSize = isLargeScreen ? barSize : Math.min(15, 300 / data.length);
+  const calculatedBarSize = Math.min(barSize, (isLargeScreen ? 400 : chartHeight) / data.length / 2);
 
   return (
     <ResponsiveContainer width="100%" height={chartHeight}>
@@ -53,8 +53,8 @@ const BarChart: React.FC<BarChartProps> = ({
         data={data}
         layout={layout}
         margin={margin}
-        barGap={1}
-        barCategoryGap={isLargeScreen ? "10%" : "5%"}
+        barCategoryGap={`${calculatedBarSize}%`}
+        barGap={2}
       >
         {layout === 'horizontal' ? (
           <>
