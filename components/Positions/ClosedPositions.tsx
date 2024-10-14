@@ -2,11 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
-import { Bar, BarChart, XAxis, YAxis, Tooltip, Legend, Cell } from 'recharts';
+import { Bar, BarChart, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { DataTable } from '../Common/DataTable';
 import { ColumnDef } from "@tanstack/react-table"
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { ChartContainer } from '../ui/chart';
 
 interface ClosedPosition {
   id: number;
@@ -52,6 +51,18 @@ const ClosedPositions: React.FC = () => {
   const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
   const [chartData, setChartData] = useState<ClosedPositionBySymbol[] | ClosedPositionByMonth[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLargeScreen, setIsLargeScreen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsLargeScreen(window.innerWidth >= 1024); // 1024px is typically the breakpoint for large screens
+    };
+
+    handleResize(); // Call once to set initial state
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -159,25 +170,44 @@ const ClosedPositions: React.FC = () => {
   }
 
   const formatCurrency = (value: number): string => {
+    if (isNaN(value) || !isFinite(value)) {
+      console.warn('Invalid currency value:', value);
+      return '$0.00';
+    }
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   };
 
   const chartConfig = {
     total_profit_loss: {
       label: 'Net Profit/Loss',
-      color: 'hsl(152, 57.5%, 37.6%)',
-    },
-    total_commissions: {
-      label: 'Commissions',
-      color: 'hsl(4, 90%, 58%)',
-    },
-    total_fees: {
-      label: 'Fees',
-      color: 'hsl(45, 93%, 47.5%)',
+      color: 'hsl(152, 57.5%, 37.6%)', // Green color for positive values
+      negativeColor: 'hsl(4, 90%, 58%)', // Red color for negative values
     },
   };
 
   const isGroupedByMonth = appliedFilters.ticker !== 'ALL' && appliedFilters.month === 'ALL';
+
+  // Function to calculate the domain for the value axis with padding
+  const calculateDomain = (data: any[]) => {
+    const values = data.map(item => item.total_profit_loss);
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+    const absMax = Math.max(Math.abs(minValue), Math.abs(maxValue));
+    const padding = absMax * 0.1; // Add 10% padding
+    return [-absMax - padding, absMax + padding];
+  };
+
+  const calculateChartHeight = () => {
+    const baseHeight = 400;
+    const itemHeight = isLargeScreen ? 25 : 30; // Reduced height for small screens
+    const itemCount = chartData.length;
+    
+    if (isLargeScreen) {
+      return Math.min(baseHeight, itemCount * itemHeight);
+    } else {
+      return Math.max(baseHeight, itemCount * itemHeight);
+    }
+  };
 
   return (
     <div>
@@ -188,43 +218,84 @@ const ClosedPositions: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ChartContainer
-            className="h-[400px]"
-            config={chartConfig}
-          >
-            <BarChart data={chartData}>
-              <XAxis
-                dataKey={isGroupedByMonth ? "close_month" : "underlying_symbol"}
-                stroke="#888888"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={isGroupedByMonth ? getMonthAbbreviation : undefined}
-              />
-              <YAxis
-                stroke="#888888"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={formatCurrency}
-              />
+          <ResponsiveContainer width="100%" height={calculateChartHeight()}>
+            <BarChart
+              data={chartData}
+              layout={isLargeScreen ? "horizontal" : "vertical"}
+              margin={isLargeScreen 
+                ? { top: 10, right: 30, left: 40, bottom: 5 }
+                : { top: 5, right: 10, left: 30, bottom: 5 }
+              }
+            >
+              {isLargeScreen ? (
+                <>
+                  <XAxis
+                    dataKey={isGroupedByMonth ? "close_month" : "underlying_symbol"}
+                    type="category"
+                    tickFormatter={isGroupedByMonth ? getMonthAbbreviation : undefined}
+                    interval={0}
+                    tick={{ fontSize: 12 }}
+                    height={60}
+                    tickSize={8}
+                    angle={-90}
+                    textAnchor="end"
+                  />
+                  <YAxis
+                    type="number"
+                    tickFormatter={formatCurrency}
+                    domain={calculateDomain(chartData)}
+                    padding={{ top: 10, bottom: 10 }}
+                  />
+                </>
+              ) : (
+                <>
+                  <XAxis
+                    type="number"
+                    tickFormatter={formatCurrency}
+                    domain={calculateDomain(chartData)}
+                    padding={{ left: 5, right: 5 }}
+                  />
+                  <YAxis
+                    dataKey={isGroupedByMonth ? "close_month" : "underlying_symbol"}
+                    type="category"
+                    width={60}
+                    tickFormatter={isGroupedByMonth ? getMonthAbbreviation : undefined}
+                    interval={0}
+                    tick={{ fontSize: 10 }}
+                  />
+                </>
+              )}
               <Tooltip
-                formatter={(value: number, name: string) => [formatCurrency(value), name]}
-                labelFormatter={(label) => isGroupedByMonth ? `Month: ${getMonthAbbreviation(label)}` : `Symbol: ${label}`}
+                formatter={(value: number, name: string, props: any) => {
+                  const formattedValue = formatCurrency(value);
+                  const axisLabel = isLargeScreen
+                    ? props.payload.underlying_symbol || getMonthAbbreviation(props.payload.close_month)
+                    : formattedValue;
+                  const valueLabel = isLargeScreen 
+                    ? formattedValue 
+                    : props.payload.underlying_symbol || getMonthAbbreviation(props.payload.close_month);
+                  return [`${valueLabel} (${axisLabel})`, name];
+                }}
+                labelFormatter={(label) => {
+                  return isGroupedByMonth
+                    ? `Month: ${getMonthAbbreviation(label)}`
+                    : `Symbol: ${label}`;
+                }}
               />
-              <Legend />
-              <Bar dataKey="total_profit_loss" name="Net Profit/Loss">
+              <Bar 
+                dataKey="total_profit_loss" 
+                name="Net Profit/Loss" 
+                barSize={isLargeScreen ? 20 : 15}
+              >
                 {chartData.map((entry, index) => (
                   <Cell 
                     key={`cell-${index}`} 
-                    fill={entry.total_profit_loss >= 0 ? chartConfig.total_profit_loss.color : chartConfig.total_commissions.color}
+                    fill={entry.total_profit_loss >= 0 ? chartConfig.total_profit_loss.color : chartConfig.total_profit_loss.negativeColor}
                   />
                 ))}
               </Bar>
-              <Bar dataKey="total_commissions" fill={chartConfig.total_commissions.color} />
-              <Bar dataKey="total_fees" fill={chartConfig.total_fees.color} />
             </BarChart>
-          </ChartContainer>
+          </ResponsiveContainer>
         </CardContent>
       </Card>
       <div className="mt-8">
