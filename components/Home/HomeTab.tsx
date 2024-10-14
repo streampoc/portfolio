@@ -11,6 +11,7 @@ import Dividends from '../Dividends/Dividends';
 import { useFilters } from '../../contexts/FilterContext';
 import { MonthlyProfitLossChart } from './MonthlyProfitLossChart';
 import { Tabs, TabsContent } from "@/components/ui/tabs"
+import Details from '../Details/Details';
 
 const tabs = [
   { id: 'home', label: 'Home' },
@@ -53,7 +54,7 @@ const HomeTab: React.FC = () => {
             <Dividends />
           </TabsContent>
           <TabsContent value="details">
-            <div>Details Content</div>
+            <Details />
           </TabsContent>
         </div>
       </Tabs>

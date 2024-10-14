@@ -430,3 +430,89 @@ export async function getClosedPositionsByMonth(filters: any) {
     throw error;
   }
 }
+
+// Add this function to your existing tradeQueries.ts file
+
+export async function getDetailsData(filters: any) {
+  let queryText = `
+    WITH closed_positions AS (
+      SELECT 
+        underlying_symbol,
+        SUM(profit_loss) as realized,
+        SUM(commissions) as closed_commissions,
+        SUM(fees) as closed_fees
+      FROM trades
+      WHERE is_closed = true
+      AND transaction_type = 'Trade'
+      GROUP BY underlying_symbol
+    ),
+    open_positions AS (
+      SELECT
+        underlying_symbol,
+        SUM((quantity::numeric * open_price::numeric) - (quantity::numeric * (SELECT close_price FROM trades WHERE underlying_symbol = t.underlying_symbol ORDER BY close_date DESC LIMIT 1)::numeric)) as unrealized,
+        SUM(commissions) as open_commissions,
+        SUM(fees) as open_fees
+      FROM trades t
+      WHERE is_closed = false
+      AND transaction_type = 'Trade'
+      GROUP BY underlying_symbol
+    )
+    SELECT 
+      COALESCE(c.underlying_symbol, o.underlying_symbol) as underlying_symbol,
+      COALESCE(c.realized, 0) as realized,
+      COALESCE(o.unrealized, 0) as unrealized,
+      COALESCE(c.closed_commissions, 0) + COALESCE(o.open_commissions, 0) as commissions,
+      COALESCE(c.closed_fees, 0) + COALESCE(o.open_fees, 0) as fees,
+      COALESCE(c.realized, 0) + COALESCE(o.unrealized, 0) - (COALESCE(c.closed_commissions, 0) + COALESCE(o.open_commissions, 0)) - (COALESCE(c.closed_fees, 0) + COALESCE(o.open_fees, 0)) as net
+    FROM closed_positions c
+    FULL OUTER JOIN open_positions o ON c.underlying_symbol = o.underlying_symbol
+  `;
+
+  const queryParams: any[] = [];
+  let paramIndex = 1;
+
+  if (filters.year && filters.year !== 'All Years') {
+    queryText += ` WHERE (c.close_year = $${paramIndex} OR o.open_year = $${paramIndex})`;
+    queryParams.push(filters.year);
+    paramIndex++;
+  }
+
+  if (filters.month && filters.month !== 'ALL') {
+    queryText += paramIndex === 1 ? ' WHERE' : ' AND';
+    queryText += ` (c.close_month = $${paramIndex} OR o.open_month = $${paramIndex})`;
+    queryParams.push(filters.month);
+    paramIndex++;
+  }
+
+  if (filters.week && filters.week !== 'ALL') {
+    queryText += paramIndex === 1 ? ' WHERE' : ' AND';
+    queryText += ` (c.close_week = $${paramIndex} OR o.open_week = $${paramIndex})`;
+    queryParams.push(filters.week);
+    paramIndex++;
+  }
+
+  if (filters.day && filters.day !== 'All Days') {
+    queryText += paramIndex === 1 ? ' WHERE' : ' AND';
+    queryText += ` (DATE(c.close_date) = DATE($${paramIndex}) OR DATE(o.open_date) = DATE($${paramIndex}))`;
+    queryParams.push(filters.day);
+    paramIndex++;
+  }
+
+  if (filters.ticker && filters.ticker !== 'ALL') {
+    queryText += paramIndex === 1 ? ' WHERE' : ' AND';
+    queryText += ` (c.underlying_symbol = $${paramIndex} OR o.underlying_symbol = $${paramIndex})`;
+    queryParams.push(filters.ticker);
+  }
+
+  queryText += ' ORDER BY net DESC';
+
+  try {
+    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    const result = await sql.query(queryText, queryParams);
+    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getDetailsData:', error);
+    throw error;
+  }
+}
