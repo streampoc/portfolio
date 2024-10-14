@@ -90,28 +90,31 @@ const OpenPositions: React.FC = () => {
       header: "Symbol",
     },
     {
-      accessorKey: "underlying_symbol",
-      header: "Underlying Symbol",
+        accessorKey: "open_price",
+        header: "Open Price",
+        cell: ({ row }) => {
+          const price = parseFloat(row.getValue("open_price"));
+          return new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: "USD",
+          }).format(price);
+        },
+        sortingFn: (rowA, rowB, columnId) => {
+            return parseFloat(rowA.getValue(columnId)) - parseFloat(rowB.getValue(columnId));
+        }
     },
     {
       accessorKey: "quantity",
       header: "Quantity",
     },
     {
-      accessorKey: "open_price",
-      header: "Open Price",
-      cell: ({ row }) => {
-        const price = parseFloat(row.getValue("open_price"));
-        return new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "USD",
-        }).format(price);
-      },
-    },
-    {
       accessorKey: "open_date",
       header: "Open Date",
       cell: ({ row }) => new Date(row.getValue("open_date")).toLocaleDateString(),
+    },
+    {
+        accessorKey: "underlying_symbol",
+        header: "Underlying Symbol",
     },
     {
       accessorKey: "commissions",
