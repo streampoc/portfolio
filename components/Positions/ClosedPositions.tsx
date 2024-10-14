@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
-import { Bar, BarChart, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import BarChart from '../Common/BarChart';
 import { DataTable } from '../Common/DataTable';
 import { ColumnDef } from "@tanstack/react-table"
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -187,19 +187,9 @@ const ClosedPositions: React.FC = () => {
 
   const isGroupedByMonth = appliedFilters.ticker !== 'ALL' && appliedFilters.month === 'ALL';
 
-  // Function to calculate the domain for the value axis with padding
-  const calculateDomain = (data: any[]) => {
-    const values = data.map(item => item.total_profit_loss);
-    const minValue = Math.min(...values);
-    const maxValue = Math.max(...values);
-    const absMax = Math.max(Math.abs(minValue), Math.abs(maxValue));
-    const padding = absMax * 0.1; // Add 10% padding
-    return [-absMax - padding, absMax + padding];
-  };
-
   const calculateChartHeight = () => {
     const baseHeight = 400;
-    const itemHeight = isLargeScreen ? 25 : 30; // Reduced height for small screens
+    const itemHeight = isLargeScreen ? 25 : 30;
     const itemCount = chartData.length;
     
     if (isLargeScreen) {
@@ -218,84 +208,35 @@ const ClosedPositions: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={calculateChartHeight()}>
-            <BarChart
-              data={chartData}
-              layout={isLargeScreen ? "horizontal" : "vertical"}
-              margin={isLargeScreen 
-                ? { top: 10, right: 30, left: 40, bottom: 5 }
-                : { top: 5, right: 10, left: 30, bottom: 5 }
-              }
-            >
-              {isLargeScreen ? (
-                <>
-                  <XAxis
-                    dataKey={isGroupedByMonth ? "close_month" : "underlying_symbol"}
-                    type="category"
-                    tickFormatter={isGroupedByMonth ? getMonthAbbreviation : undefined}
-                    interval={0}
-                    tick={{ fontSize: 12 }}
-                    height={60}
-                    tickSize={8}
-                    angle={-90}
-                    textAnchor="end"
-                  />
-                  <YAxis
-                    type="number"
-                    tickFormatter={formatCurrency}
-                    domain={calculateDomain(chartData)}
-                    padding={{ top: 10, bottom: 10 }}
-                  />
-                </>
-              ) : (
-                <>
-                  <XAxis
-                    type="number"
-                    tickFormatter={formatCurrency}
-                    domain={calculateDomain(chartData)}
-                    padding={{ left: 5, right: 5 }}
-                  />
-                  <YAxis
-                    dataKey={isGroupedByMonth ? "close_month" : "underlying_symbol"}
-                    type="category"
-                    width={60}
-                    tickFormatter={isGroupedByMonth ? getMonthAbbreviation : undefined}
-                    interval={0}
-                    tick={{ fontSize: 10 }}
-                  />
-                </>
-              )}
-              <Tooltip
-                formatter={(value: number, name: string, props: any) => {
-                  const formattedValue = formatCurrency(value);
-                  const axisLabel = isLargeScreen
-                    ? props.payload.underlying_symbol || getMonthAbbreviation(props.payload.close_month)
-                    : formattedValue;
-                  const valueLabel = isLargeScreen 
-                    ? formattedValue 
-                    : props.payload.underlying_symbol || getMonthAbbreviation(props.payload.close_month);
-                  return [`${valueLabel} (${axisLabel})`, name];
-                }}
-                labelFormatter={(label) => {
-                  return isGroupedByMonth
-                    ? `Month: ${getMonthAbbreviation(label)}`
-                    : `Symbol: ${label}`;
-                }}
-              />
-              <Bar 
-                dataKey="total_profit_loss" 
-                name="Net Profit/Loss" 
-                barSize={isLargeScreen ? 20 : 15}
-              >
-                {chartData.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={entry.total_profit_loss >= 0 ? chartConfig.total_profit_loss.color : chartConfig.total_profit_loss.negativeColor}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <BarChart
+            data={chartData}
+            xDataKey={isGroupedByMonth ? "close_month" : "underlying_symbol"}
+            yDataKey="total_profit_loss"
+            layout={isLargeScreen ? "horizontal" : "vertical"}
+            isLargeScreen={isLargeScreen}
+            formatXAxis={isGroupedByMonth ? getMonthAbbreviation : undefined}
+            formatYAxis={formatCurrency}
+            formatTooltip={(value: number, name: string, props: any) => {
+              const formattedValue = formatCurrency(value);
+              const axisLabel = isLargeScreen
+                ? props.payload.underlying_symbol || getMonthAbbreviation(props.payload.close_month)
+                : formattedValue;
+              const valueLabel = isLargeScreen 
+                ? formattedValue 
+                : props.payload.underlying_symbol || getMonthAbbreviation(props.payload.close_month);
+              return [`${valueLabel} (${axisLabel})`, name];
+            }}
+            labelFormatter={(label) => {
+              return isGroupedByMonth
+                ? `Month: ${getMonthAbbreviation(label)}`
+                : `Symbol: ${label}`;
+            }}
+            barSize={isLargeScreen ? 20 : 15}
+            colors={{
+              positive: chartConfig.total_profit_loss.color,
+              negative: chartConfig.total_profit_loss.negativeColor,
+            }}
+          />
         </CardContent>
       </Card>
       <div className="mt-8">

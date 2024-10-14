@@ -90,7 +90,6 @@ const Stocks: React.FC = () => {
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Stock Positions</h2>
-      <BarChart data={stockPositions} />
       <DataTable columns={columns} data={stockPositions} />
     </div>
   );
