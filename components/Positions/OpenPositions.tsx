@@ -109,7 +109,6 @@ const OpenPositions: React.FC = () => {
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Open Positions</h2>
-      <BarChart data={openPositions} />
       <DataTable columns={columns} data={openPositions}/>
     </div>
   );
