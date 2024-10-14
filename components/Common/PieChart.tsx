@@ -1,5 +1,5 @@
 import React from 'react';
-import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, ResponsiveContainer, Sector } from 'recharts';
+import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, ResponsiveContainer, Sector, Legend } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import CustomTooltip from './CustomTooltip';
 
@@ -90,6 +90,19 @@ const PieChart: React.FC<PieChartProps> = ({ data, colors, title, description })
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
+            <Legend
+              layout="vertical"
+              align="right"
+              verticalAlign="top"
+              iconSize={10}
+              iconType="square"
+              wrapperStyle={{
+                top: 0,
+                left: 0,
+                paddingLeft: '20px',
+                fontSize: '12px',
+              }}
+            />
           </RechartsPieChart>
         </ResponsiveContainer>
       </CardContent>
