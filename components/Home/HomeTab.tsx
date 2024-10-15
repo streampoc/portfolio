@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, lazy, Suspense } from 'react';
-import TabNavigation from '../Common/TabNavigation';
 import { useFilters } from '../../contexts/FilterContext';
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import ErrorBoundary from '../Common/ErrorBoundary';
 import LoadingSpinner from '../Common/LoadingSpinner';
+import dynamic from 'next/dynamic';
+
+const ResponsiveTabNavigation = dynamic(() => import('./ResponsiveTabNavigation'), { ssr: false });
 
 const SummaryCards = lazy(() => import('./SummaryCards'));
 const MonthlyProfitLossChart = lazy(() => import('./MonthlyProfitLossChart'));
@@ -35,7 +37,6 @@ const HomeTab: React.FC = () => {
     setIsLoading(true);
     setActiveTab(tabId);
     
-    // Ensure the spinner shows for at least 300ms
     setTimeout(() => {
       if (loadedTabs.has(tabId)) {
         setIsLoading(false);
@@ -46,7 +47,6 @@ const HomeTab: React.FC = () => {
   const handleContentLoaded = (tabId: string) => {
     setLoadedTabs(prev => new Set(prev).add(tabId));
     if (tabId === activeTab) {
-      // Delay hiding the spinner to ensure it's visible for at least a short duration
       setTimeout(() => setIsLoading(false), 300);
     }
   };
@@ -54,7 +54,7 @@ const HomeTab: React.FC = () => {
   return (
     <div className="h-full flex flex-col">
       <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-grow">
-        <TabNavigation tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
+        <ResponsiveTabNavigation tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
         <div className="flex-grow overflow-auto mt-4 relative">
           <ErrorBoundary>
             {isLoading && <LoadingSpinner />}
