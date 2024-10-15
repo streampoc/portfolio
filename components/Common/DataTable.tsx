@@ -235,22 +235,22 @@ export function DataTable<TData, TValue>({
             )}
           </TableBody>
           {showFooter && (
-            <TableFooter className="bg-gray-900">
+            <TableHeader className="bg-gray-900">
               {table.getFooterGroups().map((footerGroup) => (
-                <TableRow key={footerGroup.id} className="font-bold text-white-100">
+                <TableRow key={footerGroup.id}>
                   {footerGroup.headers.map((header) => (
-                    <TableCell key={header.id}>
+                    <TableHead key={header.id} className="font-bold text-white-100">
                       {header.isPlaceholder
                         ? null
                         : flexRender(
                             header.column.columnDef.footer,
                             header.getContext()
                           )}
-                    </TableCell>
+                    </TableHead>
                   ))}
                 </TableRow>
               ))}
-            </TableFooter>
+            </TableHeader>
           )}
         </Table>
       </div>

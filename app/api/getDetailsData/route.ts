@@ -8,7 +8,8 @@ export async function GET(request: Request) {
   try {
     console.log('Fetching details data');
     const data = await getDetailsData(filters);
-    console.log(`Details data fetched: ${JSON.stringify(data)}`);
+    console.log('Fetching done');
+    //console.log(`Details data fetched: ${JSON.stringify(data)}`);
     return NextResponse.json(data);
   } catch (error: unknown) {
     console.error('Error in getDetailsData route:', error);

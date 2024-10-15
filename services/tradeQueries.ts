@@ -438,32 +438,35 @@ export async function getDetailsData(filters: any) {
     WITH closed_positions AS (
       SELECT 
         underlying_symbol,
+        close_year,
         SUM(profit_loss) as realized,
         SUM(commissions) as closed_commissions,
         SUM(fees) as closed_fees
       FROM trades
       WHERE is_closed = true
       AND transaction_type = 'Trade'
-      GROUP BY underlying_symbol
+      GROUP BY underlying_symbol,close_year
     ),
     open_positions AS (
       SELECT
         underlying_symbol,
-        SUM((quantity::numeric * open_price::numeric) - (quantity::numeric * (SELECT close_price FROM trades WHERE underlying_symbol = t.underlying_symbol ORDER BY close_date DESC LIMIT 1)::numeric)) as unrealized,
+        open_year,
+        SUM((quantity::numeric * open_price::numeric)) as unrealized,
         SUM(commissions) as open_commissions,
         SUM(fees) as open_fees
       FROM trades t
       WHERE is_closed = false
       AND transaction_type = 'Trade'
-      GROUP BY underlying_symbol
+      GROUP BY underlying_symbol,open_year
     )
     SELECT 
       COALESCE(c.underlying_symbol, o.underlying_symbol) as underlying_symbol,
+      COALESCE(c.close_year, o.open_year) as year,
       COALESCE(c.realized, 0) as realized,
       COALESCE(o.unrealized, 0) as unrealized,
       COALESCE(c.closed_commissions, 0) + COALESCE(o.open_commissions, 0) as commissions,
       COALESCE(c.closed_fees, 0) + COALESCE(o.open_fees, 0) as fees,
-      COALESCE(c.realized, 0) + COALESCE(o.unrealized, 0) - (COALESCE(c.closed_commissions, 0) + COALESCE(o.open_commissions, 0)) - (COALESCE(c.closed_fees, 0) + COALESCE(o.open_fees, 0)) as net
+      COALESCE(c.realized, 0) + (COALESCE(c.closed_commissions, 0)) + (COALESCE(c.closed_fees, 0)) as net
     FROM closed_positions c
     FULL OUTER JOIN open_positions o ON c.underlying_symbol = o.underlying_symbol
   `;
@@ -476,7 +479,7 @@ export async function getDetailsData(filters: any) {
     queryParams.push(filters.year);
     paramIndex++;
   }
-
+  /*
   if (filters.month && filters.month !== 'ALL') {
     queryText += paramIndex === 1 ? ' WHERE' : ' AND';
     queryText += ` (c.close_month = $${paramIndex} OR o.open_month = $${paramIndex})`;
@@ -503,8 +506,9 @@ export async function getDetailsData(filters: any) {
     queryText += ` (c.underlying_symbol = $${paramIndex} OR o.underlying_symbol = $${paramIndex})`;
     queryParams.push(filters.ticker);
   }
+  */
 
-  queryText += ' ORDER BY net DESC';
+  queryText += ' ORDER BY underlying_symbol DESC';
 
   try {
     console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);

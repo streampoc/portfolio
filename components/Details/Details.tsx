@@ -6,6 +6,7 @@ import { DataTable } from '../Common/DataTable';
 import { ColumnDef } from "@tanstack/react-table";
 
 interface DetailRow {
+  year: number;
   underlying_symbol: string;
   realized: number;
   unrealized: number;
@@ -34,16 +35,36 @@ const Details: React.FC = () => {
           throw new Error('Failed to fetch details data');
         }
         const data = await response.json();
-        // Ensure all numeric fields are properly parsed
-        const parsedData = data.map((row: any) => ({
-          ...row,
-          realized: parseFloat(row.realized),
-          unrealized: parseFloat(row.unrealized),
-          commissions: parseFloat(row.commissions),
-          fees: parseFloat(row.fees),
-          net: parseFloat(row.net),
-        }));
-        setDetailsData(parsedData);
+        // Ensure all numeric fields are properly parsed and group by year
+        const parsedData = data.reduce((acc: DetailRow[], row: any) => {
+          const year = parseInt(row.year);
+          const existingRow = acc.find(r => r.underlying_symbol === row.underlying_symbol);
+          if (existingRow) {
+            existingRow.realized += parseFloat(row.realized);
+            existingRow.unrealized += parseFloat(row.unrealized);
+            existingRow.commissions += parseFloat(row.commissions);
+            existingRow.fees += parseFloat(row.fees);
+            existingRow.net += parseFloat(row.net);
+          } else {
+            acc.push({
+              year,
+              underlying_symbol: row.underlying_symbol,
+              realized: parseFloat(row.realized),
+              unrealized: parseFloat(row.unrealized),
+              commissions: parseFloat(row.commissions),
+              fees: parseFloat(row.fees),
+              net: parseFloat(row.net),
+            });
+          }
+          return acc;
+        }, []);
+        
+        // Sort the data by symbol before setting it to state
+        const sortedData = parsedData.sort((a:any, b:any) => 
+          a.underlying_symbol.localeCompare(b.underlying_symbol)
+        );
+        
+        setDetailsData(sortedData);
       } catch (error) {
         console.error('Error fetching details data:', error);
       } finally {
