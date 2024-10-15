@@ -79,6 +79,12 @@ const Details: React.FC = () => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   };
 
+  const formatColoredCurrency = (value: number): JSX.Element => {
+    const formattedValue = formatCurrency(value);
+    const colorClass = value >= 0 ? 'text-green-600' : 'text-red-600';
+    return <span className={colorClass}>{formattedValue}</span>;
+  };
+
   const columns: ColumnDef<DetailRow>[] = [
     {
       accessorKey: "underlying_symbol",
@@ -88,46 +94,46 @@ const Details: React.FC = () => {
     {
       accessorKey: "realized",
       header: "Realized",
-      cell: ({ row }) => formatCurrency(row.getValue("realized") as number),
+      cell: ({ row }) => formatColoredCurrency(row.getValue("realized") as number),
       footer: ({ table }) => {
         const total = table.getFilteredRowModel().rows.reduce((sum, row) => sum + (row.getValue("realized") as number), 0);
-        return formatCurrency(total);
+        return formatColoredCurrency(total);
       }
     },
     {
       accessorKey: "unrealized",
       header: "Unrealized",
-      cell: ({ row }) => formatCurrency(row.getValue("unrealized") as number),
+      cell: ({ row }) => formatColoredCurrency(row.getValue("unrealized") as number),
       footer: ({ table }) => {
         const total = table.getFilteredRowModel().rows.reduce((sum, row) => sum + (row.getValue("unrealized") as number), 0);
-        return formatCurrency(total);
+        return formatColoredCurrency(total);
       }
     },
     {
       accessorKey: "commissions",
       header: "Commissions",
-      cell: ({ row }) => formatCurrency(row.getValue("commissions") as number),
+      cell: ({ row }) => formatColoredCurrency(row.getValue("commissions") as number),
       footer: ({ table }) => {
         const total = table.getFilteredRowModel().rows.reduce((sum, row) => sum + (row.getValue("commissions") as number), 0);
-        return formatCurrency(total);
+        return formatColoredCurrency(total);
       }
     },
     {
       accessorKey: "fees",
       header: "Fees",
-      cell: ({ row }) => formatCurrency(row.getValue("fees") as number),
+      cell: ({ row }) => formatColoredCurrency(row.getValue("fees") as number),
       footer: ({ table }) => {
         const total = table.getFilteredRowModel().rows.reduce((sum, row) => sum + (row.getValue("fees") as number), 0);
-        return formatCurrency(total);
+        return formatColoredCurrency(total);
       }
     },
     {
       accessorKey: "net",
-      header: "Net",
-      cell: ({ row }) => formatCurrency(row.getValue("net") as number),
+      header: "Realized Net",
+      cell: ({ row }) => formatColoredCurrency(row.getValue("net") as number),
       footer: ({ table }) => {
         const total = table.getFilteredRowModel().rows.reduce((sum, row) => sum + (row.getValue("net") as number), 0);
-        return formatCurrency(total);
+        return formatColoredCurrency(total);
       }
     },
   ];
