@@ -13,9 +13,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
+  onClose?: () => void;
+}
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className, onClose }: SidebarProps) {
   const { filters, setFilters, applyFilters } = useFilters();
   const [weeks, setWeeks] = useState<string[]>([]);
   const [days, setDays] = useState<string[]>(['All Days']);
@@ -128,6 +130,11 @@ export function Sidebar({ className }: SidebarProps) {
     </div>
   );
 
+  const handleApplyFilters = () => {
+    applyFilters();
+    if (onClose) onClose();
+  };
+
   return (
     <div className={cn("flex flex-col h-full", className)}>
       <ScrollArea className="flex-grow">
@@ -143,7 +150,7 @@ export function Sidebar({ className }: SidebarProps) {
         </div>
       </ScrollArea>
       <div className="p-4 mt-auto">
-        <Button onClick={applyFilters} className="w-full" variant="secondary">
+        <Button onClick={handleApplyFilters} className="w-full" variant="secondary">
           Apply Filters
         </Button>
       </div>
