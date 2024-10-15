@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useFilters } from '../../contexts/FilterContext'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import BarChart from '../Common/BarChart'
+import LoadingSpinner from '../Common/LoadingSpinner'
 
 interface MonthlyData {
   close_month: string
@@ -11,6 +12,10 @@ interface MonthlyData {
   total_commissions: number
   total_fees: number
   net_profit: number
+}
+
+interface MonthlyProfitLossChartProps {
+  onContentLoaded: () => void;
 }
 
 const monthAbbreviations = [
@@ -23,10 +28,11 @@ const getMonthAbbreviation = (monthNumber: string): string => {
   return monthAbbreviations[index] || monthNumber;
 };
 
-export function MonthlyProfitLossChart() {
+const MonthlyProfitLossChart: React.FC<MonthlyProfitLossChartProps> = ({ onContentLoaded }) => {
   const [data, setData] = useState<MonthlyData[]>([])
   const { appliedFilters } = useFilters()
   const [isLargeScreen, setIsLargeScreen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const handleResize = () => {
@@ -40,6 +46,7 @@ export function MonthlyProfitLossChart() {
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true)
       const filterParams = Object.entries(appliedFilters).reduce((acc, [key, value]) => {
         acc[key] = value.toString();
         return acc;
@@ -52,16 +59,17 @@ export function MonthlyProfitLossChart() {
           throw new Error('Failed to fetch monthly profit/loss data');
         }
         const result = await response.json()
-        console.log('Received data:', result);
         const formattedData = result.map((item: MonthlyData) => ({
           ...item,
           close_month: getMonthAbbreviation(item.close_month),
           net_profit: item.total_profit_loss - item.total_commissions - item.total_fees
         }));
-        console.log('Formatted data:', formattedData);
         setData(formattedData)
       } catch (error) {
         console.error('Error fetching monthly profit/loss data:', error)
+      } finally {
+        setIsLoading(false)
+        onContentLoaded()
       }
     }
 
@@ -72,7 +80,9 @@ export function MonthlyProfitLossChart() {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   };
 
-  console.log('Rendering chart with data:', data);
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
 
   if (data.length === 0) {
     return (
@@ -130,3 +140,5 @@ export function MonthlyProfitLossChart() {
     </Card>
   )
 }
+
+export default MonthlyProfitLossChart;

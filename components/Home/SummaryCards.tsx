@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
 import DataCard from '../Common/DataCard';
+import LoadingSpinner from '../Common/LoadingSpinner';
 
 interface SummaryData {
   total_profit_loss: number | null;
@@ -10,19 +11,25 @@ interface SummaryData {
   total_fees: number | null;
 }
 
-const SummaryCards: React.FC = () => {
+interface SummaryCardsProps {
+    onContentLoaded: () => void;
+}
+
+const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
   const { appliedFilters } = useFilters();
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchSummaryData = async () => {
-      const filterParams = Object.entries(appliedFilters).reduce((acc, [key, value]) => {
-        acc[key] = value.toString();
-        return acc;
-      }, {} as Record<string, string>);
-
-      const queryParams = new URLSearchParams(filterParams);
+      setIsLoading(true);
       try {
+        const filterParams = Object.entries(appliedFilters).reduce((acc, [key, value]) => {
+          acc[key] = value.toString();
+          return acc;
+        }, {} as Record<string, string>);
+
+        const queryParams = new URLSearchParams(filterParams);
         const response = await fetch(`/api/getSummary?${queryParams}`);
         if (!response.ok) {
           throw new Error('Failed to fetch summary data');
@@ -35,13 +42,19 @@ const SummaryCards: React.FC = () => {
         });
       } catch (error) {
         console.error('Error fetching summary data:', error);
-        setSummaryData(null);
+      } finally {
+        setIsLoading(false);
+        onContentLoaded();
       }
     };
 
     fetchSummaryData();
   }, [appliedFilters]);
 
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+  
   if (!summaryData) {
     return <div>Loading summary data...</div>;
   }
@@ -50,7 +63,9 @@ const SummaryCards: React.FC = () => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0);
   };
 
-  const netProfitLoss = (summaryData.total_profit_loss || 0) - (summaryData.total_commissions || 0) - (summaryData.total_fees || 0);
+  
+
+  const netProfitLoss = (summaryData.total_profit_loss || 0) + (summaryData.total_commissions || 0) + (summaryData.total_fees || 0);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -6,6 +6,7 @@ import BarChart from '../Common/BarChart';
 import { DataTable } from '../Common/DataTable';
 import { ColumnDef } from "@tanstack/react-table"
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import LoadingSpinner from '../Common/LoadingSpinner';
 
 interface ClosedPosition {
   id: number;
@@ -20,6 +21,10 @@ interface ClosedPosition {
   profit_loss: string;
   commissions: string;
   fees: string;
+}
+
+interface ClosedPositionsProps {
+    onContentLoaded: () => void;
 }
 
 interface ClosedPositionBySymbol {
@@ -46,21 +51,20 @@ const getMonthAbbreviation = (monthNumber: string): string => {
   return monthAbbreviations[index] || monthNumber;
 };
 
-const ClosedPositions: React.FC = () => {
+const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) => {
   const { appliedFilters } = useFilters();
   const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
   const [chartData, setChartData] = useState<ClosedPositionBySymbol[] | ClosedPositionByMonth[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isLargeScreen, setIsLargeScreen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const handleResize = () => {
       setIsLargeScreen(window.innerWidth >= 1024); // 1024px is typically the breakpoint for large screens
     };
 
-    handleResize(); // Call once to set initial state
+    handleResize();
     window.addEventListener('resize', handleResize);
-
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -100,6 +104,7 @@ const ClosedPositions: React.FC = () => {
         console.error('Error fetching data:', error);
       } finally {
         setIsLoading(false);
+        onContentLoaded();
       }
     };
 
@@ -165,10 +170,6 @@ const ClosedPositions: React.FC = () => {
     },
   ];
 
-  if (isLoading) {
-    return <div>Loading closed positions...</div>;
-  }
-
   const formatCurrency = (value: number): string => {
     if (isNaN(value) || !isFinite(value)) {
       console.warn('Invalid currency value:', value);
@@ -186,7 +187,7 @@ const ClosedPositions: React.FC = () => {
   };
 
   const isGroupedByMonth = appliedFilters.ticker !== 'ALL' && appliedFilters.month === 'ALL';
-
+  
   const calculateChartHeight = () => {
     const baseHeight = 400;
     const itemHeight = isLargeScreen ? 25 : 30;
@@ -199,15 +200,27 @@ const ClosedPositions: React.FC = () => {
     }
   };
 
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  const NoDataMessage = () => (
+    <div className="text-center p-4">
+      No data available for the selected filters.
+    </div>
+  );
+  
+
   return (
     <div>
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle>
             {isGroupedByMonth ? 'Profit/Loss by Month' : 'Profit/Loss by Symbol'} {appliedFilters.ticker !== 'ALL' ? `for ${appliedFilters.ticker}` : ''}
           </CardTitle>
         </CardHeader>
         <CardContent>
+        {chartData.length > 0 ? (
           <BarChart
             data={chartData}
             xDataKey={isGroupedByMonth ? "close_month" : "underlying_symbol"}
@@ -237,10 +250,17 @@ const ClosedPositions: React.FC = () => {
               negative: chartConfig.total_profit_loss.negativeColor,
             }}
           />
+        ) : (
+            <NoDataMessage />
+          )}
         </CardContent>
       </Card>
       <div className="mt-8">
-        <DataTable columns={columns} data={closedPositions} />
+        <DataTable 
+          columns={columns} 
+          data={closedPositions}
+          showNoResultsMessage={!isLoading && closedPositions.length === 0}
+        />
       </div>
     </div>
   );

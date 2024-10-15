@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   try {
     console.log('Fetching closed positions by symbol');
     const data = await getClosedPositionsBySymbol(filters)
-    console.log(`Closed positions by symbol fetched: ${JSON.stringify(data)}`);
+    //console.log(`Closed positions by symbol fetched: ${JSON.stringify(data)}`);
     return NextResponse.json(data)
   } catch (error: unknown) {
     console.error('Error in getClosedPositionsBySymbol route:', error)

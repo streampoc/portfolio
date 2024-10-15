@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   try {
     console.log('Fetching closed positions by month');
     const data = await getClosedPositionsByMonth(filters)
-    console.log(`Closed positions by month fetched: ${JSON.stringify(data)}`);
+    //console.log(`Closed positions by month fetched: ${JSON.stringify(data)}`);
     return NextResponse.json(data)
   } catch (error: unknown) {
     console.error('Error in getClosedPositionsByMonth route:', error)

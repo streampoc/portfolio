@@ -1,17 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import TabNavigation from '../Common/TabNavigation';
-import SummaryCards from './SummaryCards';
-import Calendar from './Calendar';
-import OpenPositions from '../Positions/OpenPositions';
-import ClosedPositions from '../Positions/ClosedPositions';
-import Stocks from '../Stocks/Stocks';
-import Dividends from '../Dividends/Dividends';
 import { useFilters } from '../../contexts/FilterContext';
-import { MonthlyProfitLossChart } from './MonthlyProfitLossChart';
 import { Tabs, TabsContent } from "@/components/ui/tabs"
-import Details from '../Details/Details';
+import ErrorBoundary from '../Common/ErrorBoundary';
+import LoadingSpinner from '../Common/LoadingSpinner';
+
+const SummaryCards = lazy(() => import('./SummaryCards'));
+const MonthlyProfitLossChart = lazy(() => import('./MonthlyProfitLossChart'));
+const Calendar = lazy(() => import('./Calendar'));
+const OpenPositions = lazy(() => import('../Positions/OpenPositions'));
+const ClosedPositions = lazy(() => import('../Positions/ClosedPositions'));
+const Stocks = lazy(() => import('../Stocks/Stocks'));
+const Dividends = lazy(() => import('../Dividends/Dividends'));
+const Details = lazy(() => import('../Details/Details'));
 
 const tabs = [
   { id: 'home', label: 'Home' },
@@ -25,41 +28,69 @@ const tabs = [
 const HomeTab: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
   const { filters } = useFilters();
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set());
+
+  const handleTabChange = (tabId: string) => {
+    setIsLoading(true);
+    setActiveTab(tabId);
+    
+    // Ensure the spinner shows for at least 300ms
+    setTimeout(() => {
+      if (loadedTabs.has(tabId)) {
+        setIsLoading(false);
+      }
+    }, 300);
+  };
+
+  const handleContentLoaded = (tabId: string) => {
+    setLoadedTabs(prev => new Set(prev).add(tabId));
+    if (tabId === activeTab) {
+      // Delay hiding the spinner to ensure it's visible for at least a short duration
+      setTimeout(() => setIsLoading(false), 300);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow">
-        <TabNavigation tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-        <div className="flex-grow overflow-auto mt-4">
-          <TabsContent value="home">
-            <SummaryCards />
-            <div className="mt-6">
-              <MonthlyProfitLossChart />
-            </div>
-            <div className="mt-6">
-              <h2 className="text-2xl font-bold mb-4">Monthly Calendar</h2>
-              <Calendar />
-            </div>
-          </TabsContent>
-          <TabsContent value="open-positions">
-            <OpenPositions />
-          </TabsContent>
-          <TabsContent value="closed-positions">
-            <ClosedPositions />
-          </TabsContent>
-          <TabsContent value="stocks">
-            <Stocks />
-          </TabsContent>
-          <TabsContent value="dividends">
-            <Dividends />
-          </TabsContent>
-          <TabsContent value="details">
-            <Details />
-          </TabsContent>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-grow">
+        <TabNavigation tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
+        <div className="flex-grow overflow-auto mt-4 relative">
+          <ErrorBoundary>
+            {isLoading && <LoadingSpinner />}
+            <Suspense fallback={<LoadingSpinner />}>
+              <div style={{ visibility: isLoading ? 'hidden' : 'visible' }}>
+                <TabsContent value="home">
+                  <SummaryCards onContentLoaded={() => handleContentLoaded('home')} />
+                  <div className="mt-6">
+                    <MonthlyProfitLossChart onContentLoaded={() => handleContentLoaded('home')} />
+                  </div>
+                  <div className="mt-6">
+                    <Calendar onContentLoaded={() => handleContentLoaded('home')} />
+                  </div>
+                </TabsContent>
+                <TabsContent value="open-positions">
+                  <OpenPositions onContentLoaded={() => handleContentLoaded('open-positions')} />
+                </TabsContent>
+                <TabsContent value="closed-positions">
+                  <ClosedPositions onContentLoaded={() => handleContentLoaded('closed-positions')} />
+                </TabsContent>
+                <TabsContent value="stocks">
+                  <Stocks onContentLoaded={() => handleContentLoaded('stocks')} />
+                </TabsContent>
+                <TabsContent value="dividends">
+                  <Dividends onContentLoaded={() => handleContentLoaded('dividends')} />
+                </TabsContent>
+                <TabsContent value="details">
+                  <Details onContentLoaded={() => handleContentLoaded('details')} />
+                </TabsContent>
+              </div>
+            </Suspense>
+          </ErrorBoundary>
         </div>
       </Tabs>
     </div>
   );
 };
 
-export default HomeTab;
+export default React.memo(HomeTab);

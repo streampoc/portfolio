@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
 import { DataTable } from '../Common/DataTable';
 import { ColumnDef } from "@tanstack/react-table";
+import LoadingSpinner from '../Common/LoadingSpinner';
 
 interface DetailRow {
   year: number;
@@ -15,7 +16,11 @@ interface DetailRow {
   net: number;
 }
 
-const Details: React.FC = () => {
+interface DetailsProps {
+    onContentLoaded: () => void;
+}
+
+const Details: React.FC<DetailsProps> = ({ onContentLoaded }) => {
   const { appliedFilters } = useFilters();
   const [detailsData, setDetailsData] = useState<DetailRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -69,6 +74,7 @@ const Details: React.FC = () => {
         console.error('Error fetching details data:', error);
       } finally {
         setIsLoading(false);
+        onContentLoaded();
       }
     };
 
@@ -139,7 +145,7 @@ const Details: React.FC = () => {
   ];
 
   if (isLoading) {
-    return <div>Loading details data...</div>;
+    return <LoadingSpinner />;
   }
 
   return (
@@ -149,6 +155,7 @@ const Details: React.FC = () => {
         data={detailsData}
         showFooter={true}
         showPagination={false}
+        showNoResultsMessage={!isLoading && detailsData.length === 0}
       />
     </div>
   );

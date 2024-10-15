@@ -7,6 +7,7 @@ import PieChart from '../Common/PieChart';
 import LineChart from '../Common/LineChart';
 import { ColumnDef } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import LoadingSpinner from '../Common/LoadingSpinner';
 
 interface DividendPosition {
   id: number;
@@ -14,6 +15,10 @@ interface DividendPosition {
   underlying_symbol: string;
   profit_loss: string;
   close_date: string;
+}
+
+interface DividendPositionsProps {
+    onContentLoaded: () => void;
 }
 
 interface GroupedDividend {
@@ -36,7 +41,7 @@ const getMonthAbbreviation = (monthNumber: string): string => {
   return monthAbbreviations[index] || monthNumber;
 };
 
-const Dividends: React.FC = () => {
+const Dividends: React.FC<DividendPositionsProps> = ({ onContentLoaded }) => {
   const { appliedFilters } = useFilters();
   const [dividendPositions, setDividendPositions] = useState<DividendPosition[]>([]);
   const [groupedDividends, setGroupedDividends] = useState<GroupedDividend[]>([]);
@@ -66,6 +71,7 @@ const Dividends: React.FC = () => {
         setError('Failed to load dividend data. Please try again later.');
       } finally {
         setIsLoading(false);
+        onContentLoaded();
       }
     };
 
@@ -156,29 +162,33 @@ const Dividends: React.FC = () => {
   };
 
   if (isLoading) {
-    return <div>Loading dividend positions...</div>;
+    return <LoadingSpinner />;
   }
 
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
-
-  if (dividendPositions.length === 0) {
-    return <div>No dividend positions found for the selected filters.</div>;
-  }
+  const NoDataMessage = () => (
+    <div className="text-center p-4">
+      No data available for the selected filters.
+    </div>
+  );
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Dividend Positions</h2>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
         <Card>
+          <CardHeader>
+            <CardTitle>Dividends by Symbol</CardTitle>
+          </CardHeader>
           <CardContent>
-            <PieChart
-              data={groupedDividends}
-              colors={pieChartColors}
-              title="Dividends by Symbol"
-              description="Total dividends received per symbol"
-            />
+            {groupedDividends.length > 0 ? (
+              <PieChart
+                data={groupedDividends}
+                colors={pieChartColors}
+                title=""
+                description=""
+              />
+            ) : (
+              <NoDataMessage />
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -186,19 +196,23 @@ const Dividends: React.FC = () => {
             <CardTitle>Monthly Dividend Trend</CardTitle>
           </CardHeader>
           <CardContent>
-            <LineChart
-              data={monthlyDividends}
-              xDataKey="monthYear"
-              yDataKey="total"
-              color="#8884d8"
-              xAxisLabel="Month"
-              yAxisLabel="Dividend Amount"
-              formatYAxis={formatCurrency}
-              formatTooltip={(value: number, name: string, props: any) => {
-                const formattedValue = formatCurrency(value);
-                return [`${props.payload.monthYear}: ${formattedValue}`, name];
-              }}
-            />
+            {monthlyDividends.length > 0 ? (
+              <LineChart
+                data={monthlyDividends}
+                xDataKey="monthYear"
+                yDataKey="total"
+                color="#8884d8"
+                xAxisLabel="Month"
+                yAxisLabel="Dividend Amount"
+                formatYAxis={formatCurrency}
+                formatTooltip={(value: number, name: string, props: any) => {
+                  const formattedValue = formatCurrency(value);
+                  return [`${props.payload.monthYear}: ${formattedValue}`, name];
+                }}
+              />
+            ) : (
+              <NoDataMessage />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -206,6 +220,7 @@ const Dividends: React.FC = () => {
         <DataTable 
           columns={columns} 
           data={dividendPositions}
+          showNoResultsMessage={!isLoading && dividendPositions.length === 0}
         />
       </div>
     </div>

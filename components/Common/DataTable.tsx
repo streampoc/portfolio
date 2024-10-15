@@ -38,6 +38,7 @@ interface DataTableProps<TData, TValue> {
   data: TData[]
   showFooter?: boolean
   showPagination?: boolean
+  showNoResultsMessage?: boolean
 }
 
 export function DataTable<TData, TValue>({
@@ -45,6 +46,7 @@ export function DataTable<TData, TValue>({
   data,
   showFooter = false,
   showPagination = true,
+  showNoResultsMessage = true,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -227,11 +229,13 @@ export function DataTable<TData, TValue>({
                 </TableRow>
               ))
             ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results found. Try adjusting your filters.
-                </TableCell>
-              </TableRow>
+              showNoResultsMessage && (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                  No data available for the selected filters.
+                  </TableCell>
+                </TableRow>
+              )
             )}
           </TableBody>
           {showFooter && (

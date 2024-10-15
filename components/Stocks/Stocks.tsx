@@ -5,6 +5,7 @@ import { useFilters } from '../../contexts/FilterContext';
 import BarChart from '../Common/BarChart';
 import { DataTable } from '../Common/DataTable';
 import { ColumnDef } from "@tanstack/react-table"
+import LoadingSpinner from '../Common/LoadingSpinner';
 
 interface StockPosition {
   id: number;
@@ -18,7 +19,11 @@ interface StockPosition {
   fees: string;
 }
 
-const Stocks: React.FC = () => {
+interface StockPositionsProps {
+    onContentLoaded: () => void;
+}
+
+const Stocks: React.FC<StockPositionsProps> = ({ onContentLoaded }) => {
   const { appliedFilters } = useFilters();
   const [stockPositions, setStockPositions] = useState<StockPosition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,6 +48,7 @@ const Stocks: React.FC = () => {
         console.error('Error fetching stock positions:', error);
       } finally {
         setIsLoading(false);
+        onContentLoaded();
       }
     };
 
@@ -83,14 +89,16 @@ const Stocks: React.FC = () => {
     },
   ];
 
-  if (isLoading) {
-    return <div>Loading stock positions...</div>;
-  }
-
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Stock Positions</h2>
-      <DataTable columns={columns} data={stockPositions} />
+      {isLoading && <LoadingSpinner />}
+      {!isLoading && (
+        <DataTable 
+          columns={columns} 
+          data={stockPositions}
+          showNoResultsMessage={!isLoading && stockPositions.length === 0}
+        />
+      )}
     </div>
   );
 };

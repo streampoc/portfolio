@@ -6,6 +6,7 @@ import BarChart from '../Common/BarChart';
 import { DataTable } from '../Common/DataTable';
 import { ColumnDef } from "@tanstack/react-table"
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import LoadingSpinner from '../Common/LoadingSpinner';
 
 interface OpenPosition {
   id: number;
@@ -24,7 +25,11 @@ interface ChartData {
   total_value: number;
 }
 
-const OpenPositions: React.FC = () => {
+interface OpenPositionsProps {
+  onContentLoaded: () => void;
+}
+
+const OpenPositions: React.FC<OpenPositionsProps> = ({ onContentLoaded }) => {
   const { appliedFilters } = useFilters();
   const [openPositions, setOpenPositions] = useState<OpenPosition[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
@@ -78,6 +83,7 @@ const OpenPositions: React.FC = () => {
         console.error('Error fetching open positions:', error);
       } finally {
         setIsLoading(false);
+        onContentLoaded();
       }
     };
 
@@ -113,8 +119,8 @@ const OpenPositions: React.FC = () => {
       cell: ({ row }) => new Date(row.getValue("open_date")).toLocaleDateString(),
     },
     {
-        accessorKey: "underlying_symbol",
-        header: "Underlying Symbol",
+      accessorKey: "underlying_symbol",
+      header: "Underlying Symbol",
     },
     {
       accessorKey: "commissions",
@@ -140,13 +146,19 @@ const OpenPositions: React.FC = () => {
     },
   ];
 
-  if (isLoading) {
-    return <div>Loading open positions...</div>;
-  }
-
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   };
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  const NoDataMessage = () => (
+    <div className="text-center p-4">
+      No data available for the selected filters.
+    </div>
+  );
 
   return (
     <div>
@@ -155,6 +167,7 @@ const OpenPositions: React.FC = () => {
           <CardTitle>Open Positions by Symbol</CardTitle>
         </CardHeader>
         <CardContent>
+            {chartData.length > 0 ? (
           <BarChart
             data={chartData}
             xDataKey="symbol"
@@ -179,10 +192,17 @@ const OpenPositions: React.FC = () => {
               negative: 'hsl(4, 90%, 58%)',
             }}
           />
+          ) : (
+              <NoDataMessage />
+            )}
         </CardContent>
       </Card>
       <h2 className="text-2xl font-bold mb-4">Open Positions</h2>
-      <DataTable columns={columns} data={openPositions}/>
+      <DataTable 
+        columns={columns} 
+        data={openPositions}
+        showNoResultsMessage={!isLoading && openPositions.length === 0}
+      />
     </div>
   );
 };
