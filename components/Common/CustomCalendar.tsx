@@ -48,7 +48,7 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
   };
 
   const totalProfitLoss = data.reduce((sum, day) => {
-    return sum + (day.profitLoss || 0);
+    return sum + (day.profitLoss|| 0);
   }, 0);
   
 
