@@ -16,15 +16,21 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetClose
+  SheetClose,
+  SheetFooter
 } from "@/components/ui/sheet"
 import { Menu } from 'lucide-react'
 import { useState } from 'react'
+import { ThemeToggle } from "@/components/Common/ThemeToggle"
 
 export default function TradingDashboardPage() {
   const [open, setOpen] = useState(false);
 
   const handleClose = () => setOpen(false);
+
+  const handleThemeChange = () => {
+    setOpen(false);
+  };
 
   return (
     <FilterProvider>
@@ -36,16 +42,19 @@ export default function TradingDashboardPage() {
                 <Menu className="h-4 w-4" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[300px] sm:w-[400px]">
-            <SheetHeader>
-              <SheetTitle>Use Filters</SheetTitle>
-              <SheetDescription>
-                Choose Any Filter. Click Apply Filter button when you're done.
-              </SheetDescription>
-            </SheetHeader>
-              <div className="grid grid-cols-1 items-center gap-4 text-white">
-                  <Sidebar onClose={handleClose} />
+            <SheetContent side="left" className="w-[300px] sm:w-[400px] flex flex-col">
+              <SheetHeader>
+                <SheetTitle>Use Filters</SheetTitle>
+              </SheetHeader>
+              <div className="flex-grow grid grid-cols-1 items-center gap-4 text-white overflow-y-auto">
+                <Sidebar onClose={handleClose} />
               </div>
+              <SheetFooter className="mt-auto pt-4 border-t">
+                <div className="flex justify-between items-center w-full">
+                  <span className="text-sm text-muted-foreground">Change theme</span>
+                  <ThemeToggle onThemeChange={handleThemeChange} />
+                </div>
+              </SheetFooter>
             </SheetContent>
           </Sheet>
           <h1 className="text-2xl font-bold">Trading Dashboard</h1>

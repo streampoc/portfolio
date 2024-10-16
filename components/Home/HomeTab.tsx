@@ -7,7 +7,7 @@ import ErrorBoundary from '../Common/ErrorBoundary';
 import LoadingSpinner from '../Common/LoadingSpinner';
 import dynamic from 'next/dynamic';
 
-const ResponsiveTabNavigation = dynamic(() => import('./ResponsiveTabNavigation'), { ssr: false });
+const ResponsiveTabNavigation = dynamic(() => import('../Common/ResponsiveTabNavigation'), { ssr: false });
 
 const SummaryCards = lazy(() => import('./SummaryCards'));
 const MonthlyProfitLossChart = lazy(() => import('./MonthlyProfitLossChart'));

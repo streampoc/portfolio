@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useMediaQuery } from 'react-responsive';
-import TabNavigation from '../Common/TabNavigation';
+import TabNavigation from './TabNavigation';
 import {
   Select,
   SelectContent,

@@ -67,3 +67,9 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+@layer components {
+  .table-header-bg {
+    background-color: hsl(var(--muted) / 0.5);
+  }
+}

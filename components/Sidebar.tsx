@@ -112,9 +112,9 @@ export function Sidebar({ className, onClose }: SidebarProps) {
 
   const renderSelect = (id: string, label: string, options: string[] | { value: string; label: string }[], value: string, onChange: (value: string) => void) => (
     <div className="space-y-1 w-full">
-      <label htmlFor={id} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>
+      <label htmlFor={id} className="text-sm font-medium leading-none text-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>
       <Select onValueChange={onChange} value={value}>
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full bg-background text-foreground">
           <SelectValue placeholder={`Select ${label}`} />
         </SelectTrigger>
         <SelectContent>
@@ -135,6 +135,22 @@ export function Sidebar({ className, onClose }: SidebarProps) {
     if (onClose) onClose();
   };
 
+  const handleResetFilters = () => {
+    setFilters({
+      account: 'ALL',
+      ticker: 'ALL',
+      year: 'All Years',
+      month: 'ALL',
+      week: 'ALL',
+      day: 'All Days'
+    });
+    setTickers(['ALL']);
+    setWeeks([]);
+    setDays(['All Days']);
+    applyFilters();
+    if (onClose) onClose();
+  };
+
   return (
     <div className={cn("flex flex-col h-full", className)}>
       <ScrollArea className="flex-grow">
@@ -150,9 +166,14 @@ export function Sidebar({ className, onClose }: SidebarProps) {
         </div>
       </ScrollArea>
       <div className="p-4 mt-auto">
-        <Button onClick={handleApplyFilters} className="w-full" variant="secondary">
-          Apply Filters
-        </Button>
+        <div className="flex space-x-2">
+          <Button onClick={handleResetFilters} className="flex-1" variant="secondary">
+            Reset
+          </Button>
+          <Button onClick={handleApplyFilters} className="flex-1" variant="secondary">
+            Apply Filters
+          </Button>
+        </div>
       </div>
     </div>
   )

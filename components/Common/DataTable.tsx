@@ -179,14 +179,14 @@ export function DataTable<TData, TValue>({
           </DropdownMenu>
         </div>
       </div>
-      <div className="rounded-md border overflow-x-auto">
+      <div className="rounded-md border">
         <Table>
-          <TableHeader className="bg-gray-900">
+          <TableHeader className="bg-muted">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id} className="font-bold text-white-900">
+                    <TableHead key={header.id} className="font-bold text-foreground">
                       {header.isPlaceholder
                         ? null
                         : (
@@ -222,7 +222,7 @@ export function DataTable<TData, TValue>({
                   data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className="text-foreground">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -231,19 +231,19 @@ export function DataTable<TData, TValue>({
             ) : (
               showNoResultsMessage && (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No data available for the selected filters.
+                  <TableCell colSpan={columns.length} className="h-24 text-center text-foreground">
+                    No data available for the selected filters.
                   </TableCell>
                 </TableRow>
               )
             )}
           </TableBody>
           {showFooter && (
-            <TableHeader className="bg-gray-900">
+            <TableHeader className="bg-muted">
               {table.getFooterGroups().map((footerGroup) => (
                 <TableRow key={footerGroup.id}>
                   {footerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="font-bold text-white-100">
+                    <TableHead key={header.id} className="font-bold text-foreground">
                       {header.isPlaceholder
                         ? null
                         : flexRender(
