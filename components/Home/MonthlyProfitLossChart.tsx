@@ -34,6 +34,11 @@ const MonthlyProfitLossChart: React.FC<MonthlyProfitLossChartProps> = ({ onConte
   const [isLargeScreen, setIsLargeScreen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
+  const formatNumber = (value: number | null): string => {
+    if (value === null || value === undefined || isNaN(value)) return 'N/A';
+    return value.toFixed(2);
+  };
+
   useEffect(() => {
     const handleResize = () => {
       setIsLargeScreen(window.innerWidth >= 1024)
@@ -62,7 +67,7 @@ const MonthlyProfitLossChart: React.FC<MonthlyProfitLossChartProps> = ({ onConte
         const formattedData = result.map((item: MonthlyData) => ({
           ...item,
           close_month: getMonthAbbreviation(item.close_month),
-          net_profit: item.total_profit_loss - item.total_commissions - item.total_fees
+          net_profit: Number(item.total_profit_loss) + Number(item.total_commissions) + Number(item.total_fees)
         }));
         setData(formattedData)
       } catch (error) {

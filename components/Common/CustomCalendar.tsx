@@ -47,7 +47,13 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
     return profitLoss >= 0 ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900';
   };
 
-  const totalProfitLoss = data.reduce((sum, day) => sum + (day.profitLoss || 0), 0);
+  const totalProfitLoss = data.reduce((sum, day) => {
+    const dayDate = new Date(day.date);
+    if (dayDate.getFullYear() === year && dayDate.getMonth() === month) {
+      return sum + (day.profitLoss || 0);
+    }
+    return sum;
+  }, 0);
 
   return (
     <Card className="w-full">
@@ -55,7 +61,7 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
           <h2 className="text-xl sm:text-2xl font-bold">{monthNames[month]} {year}</h2>
           <div className="text-sm sm:text-lg font-semibold mt-2 sm:mt-0">
-            Total P/L: <span className={totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
+            <span className={totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
               ${formatNumber(totalProfitLoss)}
             </span>
           </div>
