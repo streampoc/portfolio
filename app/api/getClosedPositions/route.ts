@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   try {
     console.log('Fetching closed positions');
     const closedPositions = await getClosedPositions(Object.fromEntries(searchParams))
-    console.log(`Closed positions fetched: ${JSON.stringify(closedPositions)}`);
+    //console.log(`Closed positions fetched: ${JSON.stringify(closedPositions)}`);
     return NextResponse.json(closedPositions)
   } catch (error: unknown) {
     console.error('Error in getClosedPositions route:', error)

@@ -48,12 +48,9 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
   };
 
   const totalProfitLoss = data.reduce((sum, day) => {
-    const dayDate = new Date(day.date);
-    if (dayDate.getFullYear() === year && dayDate.getMonth() === month) {
-      return sum + (day.profitLoss || 0);
-    }
-    return sum;
+    return sum + (day.profitLoss || 0);
   }, 0);
+  
 
   return (
     <Card className="w-full">

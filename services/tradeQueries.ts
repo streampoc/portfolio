@@ -35,9 +35,9 @@ export async function getWeeksByYearAndMonth(year: string, month: string) {
   const queryParams = [year, month];
 
   try {
-    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    console.log(`Executing query getWeeksByYearAndMonth: ${queryText} with params: ${JSON.stringify(queryParams)}`);
     const result = await sql.query(queryText, queryParams);
-    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    //console.log(`Query result: ${JSON.stringify(result.rows)}`);
     const weeks = result.rows.map(row => row.close_week);
     return weeks.length > 0 ? weeks : ['ALL'];
   } catch (error) {
@@ -59,9 +59,9 @@ export async function getDistinctTickers(account: string | null) {
   queryText += ' ORDER BY underlying_symbol';
 
   try {
-    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    console.log(`Executing query getDistinctTickers: ${queryText} with params: ${JSON.stringify(queryParams)}`);
     const result = await sql.query(queryText, queryParams);
-    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    //console.log(`Query result: ${JSON.stringify(result.rows)}`);
     return result.rows.map(row => row.underlying_symbol);
   } catch (error) {
     console.error('Error in getDistinctTickers:', error);
@@ -78,14 +78,15 @@ export async function getSummaryData(filters: {
   account?: string | null,
   ticker?: string | null
 }) {
-  let queryText = 'SELECT SUM(profit_loss) as total_profit_loss, SUM(commissions) as total_commissions, SUM(fees) as total_fees FROM trades WHERE is_closed = true';
+  let queryText = `SELECT SUM(profit_loss) as total_profit_loss, SUM(commissions) as total_commissions, SUM(fees) as total_fees 
+  FROM trades WHERE is_closed = true and transaction_type = 'Trade'`;
   const queryParams: any[] = [];
 
   if (filters.year && filters.year !== 'All Years') {
     queryText += ' AND close_year = $' + (queryParams.length + 1);
     queryParams.push(filters.year);
   }
-
+  /*
   if (filters.month && filters.month !== 'ALL') {
     queryText += ' AND close_month = $' + (queryParams.length + 1);
     queryParams.push(filters.month);
@@ -100,6 +101,7 @@ export async function getSummaryData(filters: {
     queryText += ' AND DATE(close_date) = DATE($' + (queryParams.length + 1) + ')';
     queryParams.push(filters.day);
   }
+  */
 
   /*if (filters.account && filters.account !== 'ALL') {
     queryText += ' AND account = $' + (queryParams.length + 1);
@@ -112,9 +114,9 @@ export async function getSummaryData(filters: {
   }
 
   try {
-    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    console.log(`Executing query getSummaryData: ${queryText} with params: ${JSON.stringify(queryParams)}`);
     const result = await sql.query(queryText, queryParams);
-    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    //console.log(`Query result: ${JSON.stringify(result.rows)}`);
     return result.rows[0];
   } catch (error) {
     console.error('Error in getSummaryData:', error);
@@ -158,9 +160,9 @@ export async function getOpenPositions(filters: any) {
   queryText += ' ORDER BY open_date DESC';
 
   try {
-    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    console.log(`Executing query getOpenPositions: ${queryText} with params: ${JSON.stringify(queryParams)}`);
     const result = await sql.query(queryText, queryParams);
-    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    //console.log(`Query result: ${JSON.stringify(result.rows)}`);
     return result.rows;
   } catch (error) {
     console.error('Error in getOpenPositions:', error);
@@ -202,9 +204,9 @@ export async function getClosedPositions(filters: any) {
   queryText += ' ORDER BY close_date DESC';
 
   try {
-    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    console.log(`Executing query getClosedPositions: ${queryText} with params: ${JSON.stringify(queryParams)}`);
     const result = await sql.query(queryText, queryParams);
-    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    //console.log(`Query result: ${JSON.stringify(result.rows)}`);
     return result.rows;
   } catch (error) {
     console.error('Error in getClosedPositions:', error);
@@ -249,9 +251,9 @@ export async function getStockPositions(filters: any) {
   queryText += ' ORDER BY open_date DESC';
 
   try {
-    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    console.log(`Executing query getStockPositions: ${queryText} with params: ${JSON.stringify(queryParams)}`);
     const result = await sql.query(queryText, queryParams);
-    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    //console.log(`Query result: ${JSON.stringify(result.rows)}`);
     return result.rows;
   } catch (error) {
     console.error('Error in getStockPositions:', error);
@@ -297,9 +299,9 @@ export async function getDividendPositions(filters: any) {
   queryText += ' ORDER BY close_date DESC';
 
   try {
-    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    console.log(`Executing query getDividendPositions: ${queryText} with params: ${JSON.stringify(queryParams)}`);
     const result = await sql.query(queryText, queryParams);
-    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    //console.log(`Query result: ${JSON.stringify(result.rows)}`);
     return result.rows;
   } catch (error) {
     console.error('Error in getDividendPositions:', error);
@@ -319,6 +321,7 @@ export async function getMonthlyProfitLoss(filters: {
       SUM(fees) as total_fees
     FROM trades 
     WHERE is_closed = true
+    and transaction_type = 'Trade'
   `;
   const queryParams: any[] = [];
 
@@ -335,9 +338,9 @@ export async function getMonthlyProfitLoss(filters: {
   queryText += ' GROUP BY close_month ORDER BY close_month';
 
   try {
-    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    console.log(`Executing query getMonthlyProfitLoss: ${queryText} with params: ${JSON.stringify(queryParams)}`);
     const result = await sql.query(queryText, queryParams);
-    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    //console.log(`Query result: ${JSON.stringify(result.rows)}`);
     return result.rows;
   } catch (error) {
     console.error('Error in getMonthlyProfitLoss:', error);
@@ -386,9 +389,9 @@ export async function getClosedPositionsBySymbol(filters: any) {
   queryText += ' GROUP BY underlying_symbol ORDER BY total_profit_loss DESC';
 
   try {
-    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    console.log(`Executing query getClosedPositionsBySymbol: ${queryText} with params: ${JSON.stringify(queryParams)}`);
     const result = await sql.query(queryText, queryParams);
-    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    //console.log(`Query result: ${JSON.stringify(result.rows)}`);
     return result.rows;
   } catch (error) {
     console.error('Error in getClosedPositionsBySymbol:', error);
@@ -421,9 +424,9 @@ export async function getClosedPositionsByMonth(filters: any) {
   queryText += ' GROUP BY close_month ORDER BY close_month';
 
   try {
-    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    console.log(`Executing query getClosedPositionsByMonth: ${queryText} with params: ${JSON.stringify(queryParams)}`);
     const result = await sql.query(queryText, queryParams);
-    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    //console.log(`Query result: ${JSON.stringify(result.rows)}`);
     return result.rows;
   } catch (error) {
     console.error('Error in getClosedPositionsByMonth:', error);
@@ -491,9 +494,9 @@ export async function getDetailsData(filters: any) {
   queryText += ' ORDER BY underlying_symbol, year DESC';
 
   try {
-    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    console.log(`Executing query getDetailsData: ${queryText} with params: ${JSON.stringify(queryParams)}`);
     const result = await sql.query(queryText, queryParams);
-    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    //console.log(`Query result: ${JSON.stringify(result.rows)}`);
     return result.rows;
   } catch (error) {
     console.error('Error in getDetailsData:', error);
@@ -516,7 +519,8 @@ export async function getCalendarData(filters: {
       SUM(commissions) as total_commissions,
       SUM(fees) as total_fees
     FROM trades 
-    WHERE is_closed = true AND transaction_type = 'Trade'
+    WHERE is_closed = true
+    AND transaction_type = 'Trade'
   `;
   const queryParams: any[] = [];
   /*
@@ -555,9 +559,9 @@ export async function getCalendarData(filters: {
   queryText += ` GROUP BY DATE(close_date) ORDER BY DATE(close_date)`;
 
   try {
-    console.log(`Executing query: ${queryText} with params: ${JSON.stringify(queryParams)}`);
+    console.log(`Executing query getCalendarData: ${queryText} with params: ${JSON.stringify(queryParams)}`);
     const result = await sql.query(queryText, queryParams);
-    console.log(`Query result: ${JSON.stringify(result.rows)}`);
+    //console.log(`Query result: ${JSON.stringify(result.rows)}`);
     return result.rows;
   } catch (error) {
     console.error('Error in getCalendarData:', error);

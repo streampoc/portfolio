@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   try {
     console.log(`Fetching distinct tickers for account: ${account}`);
     const tickers = await getDistinctTickers(account)
-    console.log(`Tickers fetched: ${JSON.stringify(tickers)}`);
+    //console.log(`Tickers fetched: ${JSON.stringify(tickers)}`);
     return NextResponse.json(tickers)
   } catch (error: unknown) {
     console.error('Error in getTickers route:', error)

@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   try {
     console.log('Fetching monthly profit/loss data');
     const data = await getMonthlyProfitLoss(filters)
-    console.log(`Monthly profit/loss data fetched: ${JSON.stringify(data)}`);
+    //console.log(`Monthly profit/loss data fetched: ${JSON.stringify(data)}`);
     return NextResponse.json(data)
   } catch (error: unknown) {
     console.error('Error in getMonthlyProfitLoss route:', error)

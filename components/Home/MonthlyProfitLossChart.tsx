@@ -34,6 +34,7 @@ const MonthlyProfitLossChart: React.FC<MonthlyProfitLossChartProps> = ({ onConte
   const [isLargeScreen, setIsLargeScreen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
+
   const formatNumber = (value: number | null): string => {
     if (value === null || value === undefined || isNaN(value)) return 'N/A';
     return value.toFixed(2);
@@ -52,11 +53,20 @@ const MonthlyProfitLossChart: React.FC<MonthlyProfitLossChartProps> = ({ onConte
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true)
-      const filterParams = Object.entries(appliedFilters).reduce((acc, [key, value]) => {
-        acc[key] = value.toString();
-        return acc;
-      }, {} as Record<string, string>);
-      const queryParams = new URLSearchParams(filterParams);
+      const filterParams = { ...appliedFilters };
+      
+      // Default to current year if 'All Years' is selected
+      if (filterParams.year === 'All Years') {
+        filterParams.year = new Date().getFullYear().toString();
+      }
+
+      const queryParams = new URLSearchParams(
+        Object.entries(filterParams).reduce((acc, [key, value]) => {
+          acc[key] = value.toString();
+          return acc;
+        }, {} as Record<string, string>)
+      );
+
       try {
         console.log('Fetching monthly profit/loss data...', queryParams.toString());
         const response = await fetch(`/api/getMonthlyProfitLoss?${queryParams}`)
@@ -93,7 +103,7 @@ const MonthlyProfitLossChart: React.FC<MonthlyProfitLossChartProps> = ({ onConte
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Monthly Profit/Loss</CardTitle>
+          <CardTitle>Monthly Net For - {appliedFilters.year === 'All Years' ? new Date().getFullYear().toString() : appliedFilters.year}</CardTitle>
         </CardHeader>
         <CardContent>
           <p>No data available for the selected filters.</p>
@@ -113,7 +123,7 @@ const MonthlyProfitLossChart: React.FC<MonthlyProfitLossChartProps> = ({ onConte
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Monthly Profit/Loss</CardTitle>
+        <CardTitle>Monthly Net For - {appliedFilters.year === 'All Years' ? new Date().getFullYear().toString() : appliedFilters.year}</CardTitle>
       </CardHeader>
       <CardContent>
         <BarChart

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   try {
     console.log(`Fetching weeks for year: ${year}, month: ${month}`);
     const weeks = await getWeeksByYearAndMonth(year, month)
-    console.log(`Weeks fetched: ${JSON.stringify(weeks)}`);
+    //console.log(`Weeks fetched: ${JSON.stringify(weeks)}`);
     return NextResponse.json(weeks)
   } catch (error: unknown) {
     console.error('Error in getWeeks route:', error)
