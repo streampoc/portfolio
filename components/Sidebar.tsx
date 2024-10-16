@@ -136,18 +136,23 @@ export function Sidebar({ className, onClose }: SidebarProps) {
   };
 
   const handleResetFilters = () => {
-    setFilters({
+    const resetFilters = {
       account: 'ALL',
       ticker: 'ALL',
       year: 'All Years',
       month: 'ALL',
       week: 'ALL',
       day: 'All Days'
-    });
+    };
+    
+    setFilters(resetFilters);
     setTickers(['ALL']);
     setWeeks([]);
     setDays(['All Days']);
-    applyFilters();
+    
+    // Immediately apply the reset filters
+    applyFilters(resetFilters);
+    
     if (onClose) onClose();
   };
 

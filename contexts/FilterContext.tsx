@@ -15,7 +15,7 @@ interface FilterContextType {
   filters: Filters;
   appliedFilters: Filters;
   setFilters: React.Dispatch<React.SetStateAction<Filters>>;
-  applyFilters: () => void;
+  applyFilters: (newFilters?: Filters) => void;
 }
 
 const FilterContext = createContext<FilterContextType | undefined>(undefined);
@@ -32,8 +32,13 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const [appliedFilters, setAppliedFilters] = useState<Filters>(filters);
 
-  const applyFilters = () => {
-    setAppliedFilters(filters);
+  const applyFilters = (newFilters?: Filters) => {
+    if (newFilters) {
+      setFilters(newFilters);
+      setAppliedFilters(newFilters);
+    } else {
+      setAppliedFilters(filters);
+    }
   };
 
   return (

@@ -146,14 +146,14 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
           month={month}
           data={formattedData} 
         />
-        <div className="mt-8">
+        {/* <div className="mt-8">
           <h3 className="text-lg font-semibold mb-4">Raw Calendar Data</h3>
           <DataTable columns={columns} 
             data={formattedData} 
             showFooter={true}
             showPagination={false}
           />
-        </div>
+        </div> */}
     </Card>
   );
 };
