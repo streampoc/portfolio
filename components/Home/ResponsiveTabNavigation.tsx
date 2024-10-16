@@ -18,11 +18,9 @@ interface ResponsiveTabNavigationProps {
 }
 
 const ResponsiveTabNavigation: React.FC<ResponsiveTabNavigationProps> = ({ tabs, activeTab, onTabChange }) => {
-  const isLargeScreen = useMediaQuery({ minWidth: 1024 });
+  const isSmallScreen = useMediaQuery({ maxWidth: 640 });
 
-  if (isLargeScreen) {
-    return <TabNavigation tabs={tabs} activeTab={activeTab} onTabChange={onTabChange} />;
-  } else {
+  if (isSmallScreen) {
     return (
       <Select value={activeTab} onValueChange={onTabChange}>
         <SelectTrigger className="w-full">
@@ -37,6 +35,8 @@ const ResponsiveTabNavigation: React.FC<ResponsiveTabNavigationProps> = ({ tabs,
         </SelectContent>
       </Select>
     );
+  } else {
+    return <TabNavigation tabs={tabs} activeTab={activeTab} onTabChange={onTabChange} />;
   }
 };
 
