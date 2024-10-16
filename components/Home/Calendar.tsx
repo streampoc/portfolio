@@ -40,7 +40,9 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
         }, {} as Record<string, string>);
 
         const queryParams = new URLSearchParams(filterParams);
-        const response = await fetch('/api/getCalendarData?' + queryParams);
+        const response = await fetch('/api/getCalendarData?' + queryParams,{
+          cache: 'no-store' // This ensures we always get fresh data
+        });
         if (!response.ok) {
           throw new Error('Failed to fetch calendar data');
         }
