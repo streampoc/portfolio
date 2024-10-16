@@ -33,11 +33,30 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
   useEffect(() => {
     const fetchCalendarData = async () => {
       setIsLoading(true);
+      const filterParams = { ...appliedFilters };
+       // Default to current year if 'All Years' is selected
+       if (filterParams.year === 'All Years') {
+        filterParams.year = new Date().getFullYear().toString();
+       }
+       if (filterParams.month === 'ALL') {
+        filterParams.month = (new Date().getMonth()+1).toString();
+       }
+
+      const queryParams = new URLSearchParams(
+        Object.entries(filterParams).reduce((acc, [key, value]) => {
+          acc[key] = value.toString();
+          return acc;
+        }, {} as Record<string, string>)
+      );
+
       try {
+      
+        /*
         const filterParams = Object.entries(appliedFilters).reduce((acc, [key, value]) => {
           acc[key] = value.toString();
           return acc;
         }, {} as Record<string, string>);
+        */
 
         const queryParams = new URLSearchParams(filterParams);
         const response = await fetch('/api/getCalendarData?' + queryParams,{
@@ -88,10 +107,10 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
   console.log('Month is '+month)
   
   const formattedData: FormattedCalData[] = calendarData
-    .filter(day => {
+    /*.filter(day => {
       const date = new Date(day.date);
       return date.getFullYear() === year && date.getMonth() === month;
-    })
+    })*/
     .map(day => ({
       date: new Date(day.date).toISOString().split('T')[0], // Convert to YYYY-MM-DD format
       profitLoss: parseFloat(day.total_profit_loss)+parseFloat(day.total_commissions)+parseFloat(day.total_fees),
