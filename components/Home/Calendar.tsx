@@ -4,16 +4,25 @@ import React, { useEffect, useState } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import LoadingSpinner from '../Common/LoadingSpinner';
+import CustomCalendar from '../Common/CustomCalendar';
+import { DataTable } from '../Common/DataTable';
+import { ColumnDef } from "@tanstack/react-table"
 
 interface CalendarProps {
   onContentLoaded: () => void;
 }
 
 interface CalendarData {
-  // Define the structure of your calendar data here
-  // For example:
   date: string;
-  profit_loss: number;
+  total_profit_loss: string;
+  total_commissions: string;
+  total_fees: string;
+}
+
+interface FormattedCalData {
+  date: string;
+  profitLoss: number;
+  commissions: number;
 }
 
 const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
@@ -65,22 +74,50 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
     );
   }
 
-  // Render your calendar here using the calendarData
+  const formatNumber = (value: string | number | null): string => {
+    if (value === null || value === undefined) return 'N/A';
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    return isNaN(numValue) ? 'N/A' : numValue.toFixed(2);
+  };
+
+  const formattedData: FormattedCalData[] = calendarData.map(day => ({
+    date: new Date(day.date).toISOString().split('T')[0], // Convert to YYYY-MM-DD format
+    profitLoss: parseFloat(day.total_profit_loss),
+    commissions: parseFloat(day.total_commissions)
+  }));
+
+  const columns: ColumnDef<FormattedCalData>[] = [
+    {
+      accessorKey: "date",
+      header: "Date",
+    },
+    {
+      accessorKey: "profitLoss",
+      header: "Profit/Loss",
+      cell: ({ row }) => formatNumber(row.original.profitLoss),
+    },
+    {
+      accessorKey: "commissions",
+      header: "Commissions",
+      cell: ({ row }) => formatNumber(row.original.commissions),
+    },
+  ];
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Monthly Calendar</CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Replace this with your actual calendar rendering logic */}
-        <p>Calendar data loaded. Implement calendar view here.</p>
-        {/* You can map through calendarData and render each day */}
-        {calendarData.map((day, index) => (
-          <div key={index}>
-            <span>{day.date}: </span>
-            <span>{day.profit_loss}</span>
-          </div>
-        ))}
+        <CustomCalendar 
+          year={appliedFilters.year === 'All Years' ? new Date().getFullYear() : parseInt(appliedFilters.year)}
+          month={appliedFilters.month === 'ALL' ? new Date().getMonth() : parseInt(appliedFilters.month) - 1}
+          data={formattedData} 
+        />
+        {/* <div className="mt-8">
+          <h3 className="text-lg font-semibold mb-4">Raw Calendar Data</h3>
+          <DataTable columns={columns} data={formattedData} />
+        </div> */}
       </CardContent>
     </Card>
   );
