@@ -93,12 +93,14 @@ const PieChart: React.FC<PieChartProps> = ({ data, colors, title, description })
             <Legend
               layout="vertical"
               align="right"
-              verticalAlign="middle"
+              verticalAlign="top"
               iconSize={10}
               iconType="circle"
               wrapperStyle={{
                 paddingLeft: '20px',
                 fontSize: '12px',
+                top: 0,
+                right: 0,
               }}
             />
           </RechartsPieChart>

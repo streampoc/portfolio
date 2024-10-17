@@ -81,6 +81,27 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
     return [...summaryData].sort((a, b) => parseInt(b.close_year) - parseInt(a.close_year));
   }, [summaryData]);
 
+  const TouchFriendlyTooltip: React.FC<{ children: React.ReactNode; content: React.ReactNode }> = ({ children, content }) => {
+    const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+  
+    return (
+      <Tooltip open={isTooltipOpen}>
+        <TooltipTrigger asChild>
+          <div
+            className="cursor-pointer"
+            onMouseEnter={() => setIsTooltipOpen(true)}
+            onMouseLeave={() => setIsTooltipOpen(false)}
+            onTouchStart={() => setIsTooltipOpen(true)}
+            onTouchEnd={() => setIsTooltipOpen(false)}
+          >
+            {children}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>{content}</TooltipContent>
+      </Tooltip>
+    );
+  };
+
   if (isLoading) {
     return <LoadingSpinner />;
   }
@@ -107,40 +128,42 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
                                 parseFloat(yearData.total_commissions) + 
                                 parseFloat(yearData.total_fees);
           return (
-            <Tooltip key={yearData.close_year}>
-              <TooltipTrigger>
-                <DataCard 
-                  title={`${yearData.close_year}`}
-                  value={formatCurrency(netProfitLoss)}
-                  amount={netProfitLoss}
-                  className="bg-white dark:bg-gray-800 w-full"
-                  aria-label={`Net Profit/Loss for ${yearData.close_year}`}
-                />
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Net profit or loss after commissions and fees for {yearData.close_year}</p>
-                <p>Profit/Loss: {formatCurrency(parseFloat(yearData.total_profit_loss))}</p>
-                <p>Commissions: {formatCurrency(parseFloat(yearData.total_commissions))}</p>
-                <p>Fees: {formatCurrency(parseFloat(yearData.total_fees))}</p>
-              </TooltipContent>
-            </Tooltip>
+            <TouchFriendlyTooltip
+              key={yearData.close_year}
+              content={
+                <>
+                  <p>Net profit or loss after commissions and fees for {yearData.close_year}</p>
+                  <p>Profit/Loss: {formatCurrency(parseFloat(yearData.total_profit_loss))}</p>
+                  <p>Commissions: {formatCurrency(parseFloat(yearData.total_commissions))}</p>
+                  <p>Fees: {formatCurrency(parseFloat(yearData.total_fees))}</p>
+                </>
+              }
+            >
+              <DataCard 
+                title={`${yearData.close_year}`}
+                value={formatCurrency(netProfitLoss)}
+                amount={netProfitLoss}
+                className="bg-white dark:bg-gray-800 w-full"
+                aria-label={`Net Profit/Loss for ${yearData.close_year}`}
+              />
+            </TouchFriendlyTooltip>
           );
         })}
         {moneySummaryData.map((moneyData) => (
-          <Tooltip key={`${moneyData.close_year}-${moneyData.symbol}`}>
-            <TooltipTrigger>
-              <DataCard 
-                title={`${moneyData.close_year} - ${moneyData.symbol}`}
-                value={formatCurrency(parseFloat(moneyData.total_amount))}
-                amount={parseFloat(moneyData.total_amount)}
-                className="bg-white dark:bg-gray-800 w-full"
-                aria-label={`Money Summary for ${moneyData.close_year} - ${moneyData.symbol}`}
-              />
-            </TooltipTrigger>
-            <TooltipContent>
+          <TouchFriendlyTooltip
+            key={`${moneyData.close_year}-${moneyData.symbol}`}
+            content={
               <p>Total amount for {moneyData.symbol} in {moneyData.close_year}</p>
-            </TooltipContent>
-          </Tooltip>
+            }
+          >
+            <DataCard 
+              title={`${moneyData.close_year} - ${moneyData.symbol}`}
+              value={formatCurrency(parseFloat(moneyData.total_amount))}
+              amount={parseFloat(moneyData.total_amount)}
+              className="bg-white dark:bg-gray-800 w-full"
+              aria-label={`Money Summary for ${moneyData.close_year} - ${moneyData.symbol}`}
+            />
+          </TouchFriendlyTooltip>
         ))}
       </div>
     </TooltipProvider>

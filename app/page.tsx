@@ -35,7 +35,7 @@ export default function TradingDashboardPage() {
   return (
     <FilterProvider>
       <div className="bg-background min-h-screen flex flex-col">
-        <header className="p-4 bg-primary text-primary-foreground flex justify-between items-center">
+        <header className="p-4 bg-primary flex justify-between items-center">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="secondary" size="icon" className="z-50">
@@ -57,7 +57,7 @@ export default function TradingDashboardPage() {
               </SheetFooter>
             </SheetContent>
           </Sheet>
-          <h1 className="text-2xl font-bold">Trading Dashboard</h1>
+          <h1 className="text-2xl font-bold text-foreground">Trading Dashboard</h1>
           <div className="w-10"></div> {/* This empty div balances the layout */}
         </header>
         <div className="flex-grow p-4">
