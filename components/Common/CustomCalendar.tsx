@@ -32,9 +32,8 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
   ];
 
   const formatNumber = (value: number | null): string => {
-    if (value === null) return 'N/A';
-    if (typeof value !== 'number') return 'N/A';
-    return value.toFixed(2);
+    if (value === null || isNaN(value)) return 'N/A';
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   };
 
   const getDayData = (day: number): DayData | undefined => {
@@ -43,32 +42,29 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
   };
 
   const getDayColor = (profitLoss: number | null): string => {
-    if (profitLoss === null) return '';
-    return profitLoss >= 0 ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900';
+    if (profitLoss === null || isNaN(profitLoss)) return '';
+    return profitLoss >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30';
   };
 
-  const totalProfitLoss = data.reduce((sum, day) => {
-    return sum + (day.profitLoss|| 0);
-  }, 0);
-  
+  const totalProfitLoss = data.reduce((sum, day) => sum + (day.profitLoss || 0), 0);
 
   return (
-    <Card className="w-full">
+    <Card className="w-full bg-white dark:bg-gray-800">
       <CardContent className="p-2 sm:p-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
-          <h2 className="text-xl sm:text-2xl font-bold">{monthNames[month]} {year}</h2>
-          <div className="text-sm sm:text-lg font-semibold mt-2 sm:mt-0">
-            <span className={totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
-              ${formatNumber(totalProfitLoss)}
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">{monthNames[month]} {year}</h2>
+          <div className="text-sm sm:text-lg font-semibold">
+            <span className={totalProfitLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+              {formatNumber(totalProfitLoss)}
             </span>
           </div>
         </div>
-        <div className="grid grid-cols-7 gap-1 text-xs sm:text-sm">
+        <div className="grid grid-cols-7 gap-1">
           {dayNames.map(day => (
-            <div key={day} className="text-center font-bold">{day}</div>
+            <div key={day} className="text-center font-bold text-foreground text-xs sm:text-sm">{day}</div>
           ))}
           {Array.from({ length: firstDayOfMonth }).map((_, index) => (
-            <div key={`empty-${index}`} className="h-12 sm:h-20 md:h-24"></div>
+            <div key={`empty-${index}`} className="h-14 sm:h-20 md:h-24 lg:h-28"></div>
           ))}
           {Array.from({ length: daysInMonth }).map((_, index) => {
             const day = index + 1;
@@ -76,12 +72,14 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
             return (
               <div 
                 key={day} 
-                className={`border p-1 h-12 sm:h-20 md:h-24 overflow-hidden ${dayData ? getDayColor(dayData.profitLoss) : ''} relative`}
+                className={`border border-gray-200 dark:border-gray-700 p-1 h-14 sm:h-20 md:h-24 lg:h-28 overflow-hidden ${dayData ? getDayColor(dayData.profitLoss) : ''} relative`}
               >
-                <div className="font-bold">{day}</div>
-                {dayData && (
-                  <div className="absolute bottom-1 right-1 text-[0.6rem] sm:text-xs leading-tight text-right">
-                    <div>{formatNumber(dayData.profitLoss)}</div>
+                <div className="font-bold text-foreground text-xs sm:text-sm">{day}</div>
+                {dayData && dayData.profitLoss !== null && (
+                  <div className="absolute bottom-0 right-0 left-0 text-[0.5rem] sm:text-xs leading-tight text-right p-0.5 bg-opacity-75 dark:bg-opacity-75 bg-inherit">
+                    <div className={`font-bold truncate ${dayData.profitLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {formatNumber(dayData.profitLoss)}
+                    </div>
                   </div>
                 )}
               </div>

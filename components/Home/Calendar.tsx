@@ -7,6 +7,8 @@ import LoadingSpinner from '../Common/LoadingSpinner';
 import CustomCalendar from '../Common/CustomCalendar';
 import { DataTable } from '../Common/DataTable';
 import { ColumnDef } from "@tanstack/react-table"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 interface CalendarProps {
   onContentLoaded: () => void;
@@ -29,18 +31,20 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
   const { appliedFilters } = useFilters();
   const [calendarData, setCalendarData] = useState<CalendarData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCalendarData = async () => {
       setIsLoading(true);
+      setError(null);
       const filterParams = { ...appliedFilters };
-       // Default to current year if 'All Years' is selected
-       if (filterParams.year === 'All Years') {
+      // Default to current year if 'All Years' is selected
+      if (filterParams.year === 'All Years') {
         filterParams.year = new Date().getFullYear().toString();
-       }
-       if (filterParams.month === 'ALL') {
-        filterParams.month = (new Date().getMonth()+1).toString();
-       }
+      }
+      if (filterParams.month === 'ALL') {
+        filterParams.month = (new Date().getMonth() + 1).toString();
+      }
 
       const queryParams = new URLSearchParams(
         Object.entries(filterParams).reduce((acc, [key, value]) => {
@@ -50,16 +54,7 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
       );
 
       try {
-      
-        /*
-        const filterParams = Object.entries(appliedFilters).reduce((acc, [key, value]) => {
-          acc[key] = value.toString();
-          return acc;
-        }, {} as Record<string, string>);
-        */
-
-        const queryParams = new URLSearchParams(filterParams);
-        const response = await fetch('/api/getCalendarData?' + queryParams,{
+        const response = await fetch('/api/getCalendarData?' + queryParams, {
           cache: 'no-store' // This ensures we always get fresh data
         });
         if (!response.ok) {
@@ -69,6 +64,7 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
         setCalendarData(data);
       } catch (error) {
         console.error('Error fetching calendar data:', error);
+        setError('Failed to load calendar data. Please try again later.');
       } finally {
         setIsLoading(false);
         onContentLoaded();
@@ -80,6 +76,16 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
 
   if (isLoading) {
     return <LoadingSpinner />;
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
   }
 
   if (calendarData.length === 0) {
@@ -101,19 +107,13 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
     return isNaN(numValue) ? 'N/A' : numValue.toFixed(2);
   };
 
-  const year= appliedFilters.year === 'All Years' ? new Date().getFullYear() : parseInt(appliedFilters.year)
-  const month= appliedFilters.month === 'ALL' ? new Date().getMonth() : parseInt(appliedFilters.month) - 1
-  console.log('Year is '+year)
-  console.log('Month is '+month)
+  const year = appliedFilters.year === 'All Years' ? new Date().getFullYear() : parseInt(appliedFilters.year);
+  const month = appliedFilters.month === 'ALL' ? new Date().getMonth() : parseInt(appliedFilters.month) - 1;
   
   const formattedData: FormattedCalData[] = calendarData
-    /*.filter(day => {
-      const date = new Date(day.date);
-      return date.getFullYear() === year && date.getMonth() === month;
-    })*/
     .map(day => ({
       date: new Date(day.date).toISOString().split('T')[0], // Convert to YYYY-MM-DD format
-      profitLoss: parseFloat(day.total_profit_loss)+parseFloat(day.total_commissions)+parseFloat(day.total_fees),
+      profitLoss: parseFloat(day.total_profit_loss) + parseFloat(day.total_commissions) + parseFloat(day.total_fees),
       commissions: parseFloat(day.total_commissions)
     }));
 
@@ -129,7 +129,7 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
       cell: ({ row }) => formatNumber(row.original.profitLoss),
       footer: ({ table }) => {
         const total = table.getFilteredRowModel().rows.reduce((sum, row) => sum + (row.original.profitLoss as number), 0);
-        return total;
+        return formatNumber(total);
       }
     },
     {
@@ -140,20 +140,23 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
   ];
 
   return (
-    <Card>
+    <Card className="bg-white dark:bg-gray-800">
+      <CardContent>
         <CustomCalendar 
           year={year}
           month={month}
           data={formattedData} 
         />
         {/* <div className="mt-8">
-          <h3 className="text-lg font-semibold mb-4">Raw Calendar Data</h3>
-          <DataTable columns={columns} 
+          <h3 className="text-lg font-semibold mb-4 text-foreground">Calendar Data</h3>
+          <DataTable 
+            columns={columns} 
             data={formattedData} 
             showFooter={true}
             showPagination={false}
           />
         </div> */}
+      </CardContent>
     </Card>
   );
 };
