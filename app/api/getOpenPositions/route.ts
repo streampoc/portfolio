@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   try {
     console.log('Fetching open positions');
     const openPositions = await getOpenPositions(Object.fromEntries(searchParams))
-    console.log(`Open positions fetched: ${JSON.stringify(openPositions)}`);
+    //console.log(`Open positions fetched: ${JSON.stringify(openPositions)}`);
     return NextResponse.json(openPositions)
   } catch (error: unknown) {
     console.error('Error in getOpenPositions route:', error)
