@@ -141,7 +141,6 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
 
   return (
     <Card className="bg-white dark:bg-gray-800">
-      <CardContent>
         <CustomCalendar 
           year={year}
           month={month}
@@ -156,7 +155,6 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
             showPagination={false}
           />
         </div> */}
-      </CardContent>
     </Card>
   );
 };

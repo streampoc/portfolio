@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface DayData {
   date: string;
@@ -66,25 +67,36 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
           {Array.from({ length: firstDayOfMonth }).map((_, index) => (
             <div key={`empty-${index}`} className="h-14 sm:h-20 md:h-24 lg:h-28"></div>
           ))}
-          {Array.from({ length: daysInMonth }).map((_, index) => {
-            const day = index + 1;
-            const dayData = getDayData(day);
-            return (
-              <div 
-                key={day} 
-                className={`border border-gray-200 dark:border-gray-700 p-1 h-14 sm:h-20 md:h-24 lg:h-28 overflow-hidden ${dayData ? getDayColor(dayData.profitLoss) : ''} relative`}
-              >
-                <div className="font-bold text-foreground text-xs sm:text-sm">{day}</div>
-                {dayData && dayData.profitLoss !== null && (
-                  <div className="absolute bottom-0 right-0 left-0 text-[0.5rem] sm:text-xs leading-tight text-right p-0.5 bg-opacity-75 dark:bg-opacity-75 bg-inherit">
-                    <div className={`font-bold truncate ${dayData.profitLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {formatNumber(dayData.profitLoss)}
+          <TooltipProvider>
+            {Array.from({ length: daysInMonth }).map((_, index) => {
+              const day = index + 1;
+              const dayData = getDayData(day);
+              return (
+                <Tooltip key={day}>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className={`border border-gray-200 dark:border-gray-700 p-1 h-14 sm:h-20 md:h-24 lg:h-28 overflow-hidden ${dayData ? getDayColor(dayData.profitLoss) : ''} relative ${dayData ? 'cursor-pointer' : ''}`}
+                    >
+                      <div className="font-bold text-foreground text-xs sm:text-sm">{day}</div>
+                      {dayData && dayData.profitLoss !== null && (
+                        <div className="absolute bottom-0 right-0 left-0 text-[0.5rem] sm:text-xs leading-tight text-right p-0.5 bg-opacity-75 dark:bg-opacity-75 bg-inherit">
+                          <div className={`font-bold truncate ${dayData.profitLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {formatNumber(dayData.profitLoss)}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  </TooltipTrigger>
+                  {dayData && (
+                    <TooltipContent>
+                      <p>Date: {dayData.date}</p>
+                      <p>Profit/Loss: {formatNumber(dayData.profitLoss)}</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              );
+            })}
+          </TooltipProvider>
         </div>
       </CardContent>
     </Card>
