@@ -267,7 +267,7 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
             No data available for the selected filters.
           </div>
         )}
-{/*         <div className="mt-6">
+        <div className="mt-6">
           <Card>
           <CardContent>
                   <DataTable 
@@ -277,7 +277,7 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
                   />
                 </CardContent>
           </Card>
-        </div> */}
+        </div>
       </div>
         </Suspense>
       </ErrorBoundary>
