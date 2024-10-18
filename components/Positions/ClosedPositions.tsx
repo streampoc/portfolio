@@ -117,6 +117,23 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
       header: "Symbol",
     },
     {
+      accessorKey: "profit_loss",
+      header: "Profit/Loss",
+      cell: ({ row }) => {
+        const pl = parseFloat(row.getValue("profit_loss"));
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          signDisplay: "always"
+        }).format(pl);
+      },
+    },
+    {
+      accessorKey: "close_date",
+      header: "Close Date",
+      cell: ({ row }) => new Date(row.getValue("close_date")).toLocaleDateString(),
+    },
+    {
       accessorKey: "underlying_symbol",
       header: "Underlying Symbol",
     },
@@ -146,28 +163,13 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
         }).format(price);
       },
     },
-    {
-      accessorKey: "profit_loss",
-      header: "Profit/Loss",
-      cell: ({ row }) => {
-        const pl = parseFloat(row.getValue("profit_loss"));
-        return new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "USD",
-          signDisplay: "always"
-        }).format(pl);
-      },
-    },
+    
     {
       accessorKey: "open_date",
       header: "Open Date",
       cell: ({ row }) => new Date(row.getValue("open_date")).toLocaleDateString(),
     },
-    {
-      accessorKey: "close_date",
-      header: "Close Date",
-      cell: ({ row }) => new Date(row.getValue("close_date")).toLocaleDateString(),
-    },
+    
   ];
 
   const formatCurrency = (value: number): string => {

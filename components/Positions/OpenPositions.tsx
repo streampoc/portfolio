@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo,Suspense } from 'react';
+
 import { useFilters } from '../../contexts/FilterContext';
 import BarChart from '../Common/BarChart';
 import { DataTable } from '../Common/DataTable';
@@ -9,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import LoadingSpinner from '../Common/LoadingSpinner';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import ErrorBoundary from '../Common/ErrorBoundary';
 
 interface OpenPosition {
   id: number;
@@ -95,7 +97,7 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ onContentLoaded }) => {
     fetchOpenPositions();
   }, [appliedFilters]);
 
-  const columns: ColumnDef<OpenPosition>[] = useMemo(() => [
+  const columns: ColumnDef<OpenPosition>[] = [
     {
       accessorKey: "symbol",
       header: "Symbol",
@@ -110,9 +112,6 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ onContentLoaded }) => {
           currency: "USD",
         }).format(price);
       },
-      sortingFn: (rowA, rowB, columnId) => {
-        return parseFloat(rowA.getValue(columnId)) - parseFloat(rowB.getValue(columnId));
-      }
     },
     {
       accessorKey: "quantity",
@@ -127,37 +126,11 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ onContentLoaded }) => {
       accessorKey: "underlying_symbol",
       header: "Underlying Symbol",
     },
-    {
-      accessorKey: "commissions",
-      header: "Commissions",
-      cell: ({ row }) => {
-        const commissions = parseFloat(row.getValue("commissions"));
-        return new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "USD",
-        }).format(commissions);
-      },
-    },
-    {
-      accessorKey: "fees",
-      header: "Fees",
-      cell: ({ row }) => {
-        const fees = parseFloat(row.getValue("fees"));
-        return new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "USD",
-        }).format(fees);
-      },
-    },
-  ], []);
+  ];
 
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   };
-
-  if (isLoading) {
-    return <LoadingSpinner />;
-  }
 
   if (error) {
     return (
@@ -170,51 +143,67 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ onContentLoaded }) => {
   }
 
   return (
-    <div>
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Open Positions by Symbol</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {chartData.length > 0 ? (
-            <BarChart
-              data={chartData}
-              xDataKey="symbol"
-              yDataKey="total_value"
-              layout={isLargeScreen ? "horizontal" : "vertical"}
-              isLargeScreen={isLargeScreen}
-              formatYAxis={formatCurrency}
-              formatTooltip={(value: number, name: string, props: any) => {
-                const formattedValue = formatCurrency(value);
-                const axisLabel = isLargeScreen
-                  ? props.payload.symbol
-                  : formattedValue;
-                const valueLabel = isLargeScreen 
-                  ? formattedValue 
-                  : props.payload.symbol;
-                return [`${valueLabel} (${axisLabel})`, name];
-              }}
-              labelFormatter={(label) => `Symbol: ${label}`}
-              barSize={isLargeScreen ? 20 : 15}
-              colors={{
-                positive: 'hsl(152, 57.5%, 37.6%)',
-                negative: 'hsl(4, 90%, 58%)',
-              }}
-            />
-          ) : (
-            <div className="text-center p-4">
-              No data available for the selected filters.
+    <>
+    <div className="flex-grow overflow-auto p-4">
+        <ErrorBoundary>
+          {isLoading && <LoadingSpinner />}
+          <Suspense fallback={<LoadingSpinner />}>
+            <div style={{ visibility: isLoading ? 'hidden' : 'visible' }}>
+              <>
+                <div className="mt-6">
+                    {chartData.length > 0 ? (
+                      <Card>
+                      <CardContent>
+                          <BarChart
+                            data={chartData}
+                            xDataKey="symbol"
+                            yDataKey="total_value"
+                            layout={isLargeScreen ? "horizontal" : "vertical"}
+                            isLargeScreen={isLargeScreen}
+                            formatXAxis={(value) => value}
+                            formatYAxis={formatCurrency}
+                            formatTooltip={(value: number, name: string, props: any) => {
+                              const formattedValue = formatCurrency(value);
+                              const axisLabel = isLargeScreen
+                                ? formattedValue
+                                : props.payload.symbol;
+                              const valueLabel = isLargeScreen 
+                                ? props.payload.symbol
+                                : formattedValue;
+                              return [`${valueLabel} (${axisLabel})`, name];
+                            }}
+                            labelFormatter={(label) => `Symbol: ${label}`}
+                            barSize={isLargeScreen ? 20 : 20}
+                            colors={{
+                              positive: 'hsl(152, 57.5%, 37.6%)',
+                              negative: 'hsl(4, 90%, 58%)',
+                            }}
+                          />
+                          </CardContent>
+                      </Card>
+                  ) : (
+                    <div className="text-center p-4">
+                      No data available for the selected filters.
+                    </div>
+                  )}
+                </div>
+                <div className="mt-6">
+                <Card>
+                  <CardContent>
+                    <DataTable 
+                      columns={columns} 
+                      data={openPositions}
+                      showNoResultsMessage={!isLoading && openPositions.length === 0}
+                    />
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
             </div>
-          )}
-        </CardContent>
-      </Card>
-      <h2 className="text-2xl font-bold mb-4">Open Positions</h2>
-      <DataTable 
-        columns={columns} 
-        data={openPositions}
-        showNoResultsMessage={!isLoading && openPositions.length === 0}
-      />
-    </div>
+          </Suspense>
+        </ErrorBoundary>
+      </div>
+    </>
   );
 };
 

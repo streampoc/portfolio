@@ -207,8 +207,9 @@ const Dividends: React.FC<DividendPositionsProps> = ({ onContentLoaded }) => {
                 formatYAxis={formatCurrency}
                 formatTooltip={(value: number, name: string, props: any) => {
                   const formattedValue = formatCurrency(value);
-                  return [`${props.payload.monthYear}: ${formattedValue}`, name];
+                  return [formattedValue, 'Total Dividend'];
                 }}
+                labelFormatter={(label) => `Month: ${label}`}
               />
             ) : (
               <NoDataMessage />

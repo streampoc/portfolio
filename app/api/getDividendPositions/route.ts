@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   try {
     console.log('Fetching dividend positions');
     const dividendPositions = await getDividendPositions(Object.fromEntries(searchParams))
-    console.log(`Dividend positions fetched: ${JSON.stringify(dividendPositions)}`);
+    //console.log(`Dividend positions fetched: ${JSON.stringify(dividendPositions)}`);
     return NextResponse.json(dividendPositions)
   } catch (error: unknown) {
     console.error('Error in getDividendPositions route:', error)

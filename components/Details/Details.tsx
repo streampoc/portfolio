@@ -5,6 +5,7 @@ import { useFilters } from '../../contexts/FilterContext';
 import { DataTable } from '../Common/DataTable';
 import { ColumnDef } from "@tanstack/react-table";
 import LoadingSpinner from '../Common/LoadingSpinner';
+import { Card, CardContent } from "@/components/ui/card";
 
 interface DetailRow {
   year: number;

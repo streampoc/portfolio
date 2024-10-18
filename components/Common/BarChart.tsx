@@ -33,16 +33,21 @@ const BarChart: React.FC<BarChartProps> = ({
   colors
 }) => {
   const margin = isLargeScreen 
-    ? { top: 10, right: 30, left: 40, bottom: 5 }
-    : { top: 5, right: 5, left: 10, bottom: 5 };
+    ? { top: 10, right: 10, left: 30, bottom: 5 }
+    : { top: 5, right: 5, left: 20, bottom: 5 };
+
+  // Transform data to use absolute values for scaling
+  const transformedData = data.map(item => ({
+    ...item,
+    [yDataKey]: Math.abs(item[yDataKey]),
+    originalValue: item[yDataKey] // Keep the original value for color coding and tooltip
+  }));
 
   const calculateDomain = (dataKey: string) => {
-    const values = data.map(item => item[dataKey]);
-    const minValue = Math.min(...values);
+    const values = transformedData.map(item => item[dataKey]);
     const maxValue = Math.max(...values);
-    const absMax = Math.max(Math.abs(minValue), Math.abs(maxValue));
-    const padding = absMax * 0.1; // Add 10% padding
-    return [-absMax - padding, absMax + padding];
+    const padding = maxValue * 0.1; // Reduce padding to 10%
+    return [0, Math.ceil(maxValue + padding)]; // Round up to the nearest integer
   };
 
   const chartHeight = isLargeScreen ? 400 : Math.max(400, data.length * 25);
@@ -51,7 +56,7 @@ const BarChart: React.FC<BarChartProps> = ({
   return (
     <ResponsiveContainer width="100%" height={chartHeight}>
       <RechartsBarChart
-        data={data}
+        data={transformedData}
         layout={layout}
         margin={margin}
         barCategoryGap={`${calculatedBarSize}%`}
@@ -72,7 +77,7 @@ const BarChart: React.FC<BarChartProps> = ({
             />
             <YAxis
               type="number"
-              tickFormatter={formatYAxis}
+              tickFormatter={(value) => formatYAxis ? formatYAxis(value) : value.toString()}
               domain={calculateDomain(yDataKey)}
               padding={{ top: 10, bottom: 10 }}
             />
@@ -81,14 +86,14 @@ const BarChart: React.FC<BarChartProps> = ({
           <>
             <XAxis
               type="number"
-              tickFormatter={formatYAxis}
+              tickFormatter={(value) => formatYAxis ? formatYAxis(value) : value.toString()}
               domain={calculateDomain(yDataKey)}
               padding={{ left: 5, right: 5 }}
             />
             <YAxis
               dataKey={xDataKey}
               type="category"
-              width={60}
+              width={30}
               tickFormatter={formatXAxis}
               interval={0}
               tick={{ fontSize: 10 }}
@@ -97,7 +102,7 @@ const BarChart: React.FC<BarChartProps> = ({
         )}
         <Tooltip
           content={<CustomTooltip />}
-          cursor={{ fill: 'transparent' }} // This line removes the default overlay
+          cursor={{ fill: 'transparent' }}
         />
         <Bar 
           dataKey={yDataKey} 
@@ -105,10 +110,10 @@ const BarChart: React.FC<BarChartProps> = ({
           barSize={calculatedBarSize}
           minPointSize={2}
         >
-          {data.map((entry, index) => (
+          {transformedData.map((entry, index) => (
             <Cell 
               key={`cell-${index}`} 
-              fill={entry[yDataKey] >= 0 ? colors.positive : colors.negative}
+              fill={entry.originalValue >= 0 ? colors.positive : colors.negative}
             />
           ))}
         </Bar>

@@ -2,12 +2,11 @@
 
 import React, { useState, lazy, Suspense } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
-import { Tabs, TabsContent } from "@/components/ui/tabs"
 import ErrorBoundary from '../Common/ErrorBoundary';
 import LoadingSpinner from '../Common/LoadingSpinner';
-import dynamic from 'next/dynamic';
-
-const ResponsiveTabNavigation = dynamic(() => import('../Common/ResponsiveTabNavigation'), { ssr: false });
+import { Home, BookOpen, Book, BoxesIcon, DollarSign, FileText, Filter } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
+import Sidebar from '../Sidebar';
 
 const SummaryCards = lazy(() => import('./SummaryCards'));
 const MonthlyProfitLossChart = lazy(() => import('./MonthlyProfitLossChart'));
@@ -19,12 +18,13 @@ const Dividends = lazy(() => import('../Dividends/Dividends'));
 const Details = lazy(() => import('../Details/Details'));
 
 const tabs = [
-  { id: 'home', label: 'Home' },
-  { id: 'open-positions', label: 'Open Positions' },
-  { id: 'closed-positions', label: 'Closed Positions' },
-  { id: 'stocks', label: 'Stocks' },
-  { id: 'dividends', label: 'Dividends' },
-  { id: 'details', label: 'Details' },
+  { id: 'filter', label: 'Filters', icon: Filter },
+  { id: 'home', label: 'Home', icon: Home },
+  { id: 'open-positions', label: 'Open Positions', icon: BookOpen },
+  { id: 'closed-positions', label: 'Closed Positions', icon: Book },
+  { id: 'stocks', label: 'Stocks', icon: BoxesIcon },
+  { id: 'dividends', label: 'Dividends', icon: DollarSign },
+  { id: 'details', label: 'Details', icon: FileText },
 ];
 
 const HomeTab: React.FC = () => {
@@ -32,16 +32,21 @@ const HomeTab: React.FC = () => {
   const { filters } = useFilters();
   const [isLoading, setIsLoading] = useState(true);
   const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set());
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const handleTabChange = (tabId: string) => {
-    setIsLoading(true);
-    setActiveTab(tabId);
-    
-    setTimeout(() => {
-      if (loadedTabs.has(tabId)) {
-        setIsLoading(false);
-      }
-    }, 300);
+    if (tabId === 'filter') {
+      setIsFilterOpen(true);
+    } else {
+      setIsLoading(true);
+      setActiveTab(tabId);
+      
+      setTimeout(() => {
+        if (loadedTabs.has(tabId)) {
+          setIsLoading(false);
+        }
+      }, 300);
+    }
   };
 
   const handleContentLoaded = (tabId: string) => {
@@ -51,16 +56,55 @@ const HomeTab: React.FC = () => {
     }
   };
 
+  const handleCloseFilter = () => {
+    setIsFilterOpen(false);
+  };
+
   return (
-    <div className="h-full flex flex-col">
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-grow">
-        <ResponsiveTabNavigation tabs={tabs} activeTab={activeTab} onTabChange={handleTabChange} />
-        <div className="flex-grow overflow-auto mt-4 relative">
-          <ErrorBoundary>
-            {isLoading && <LoadingSpinner />}
-            <Suspense fallback={<LoadingSpinner />}>
-              <div style={{ visibility: isLoading ? 'hidden' : 'visible' }}>
-                <TabsContent value="home">
+    <>
+      <div className="w-16 bg-background border-r border-border flex flex-col items-center py-4">
+        {tabs.map((tab, index) => (
+          tab.id === 'filter' ? (
+            <Sheet key={tab.id} open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+              <SheetTrigger asChild>
+                <button
+                  className={`p-2 rounded-full ${
+                    isFilterOpen
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  } mb-6`}
+                  title={tab.label}
+                >
+                  <tab.icon size={24} />
+                </button>
+              </SheetTrigger>
+              <SheetContent side="left">
+                <Sidebar onClose={handleCloseFilter} />
+              </SheetContent>
+            </Sheet>
+          ) : (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id)}
+              className={`p-2 rounded-full ${
+                activeTab === tab.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+              } ${index === 1 ? 'mb-6' : 'mb-4'}`}
+              title={tab.label}
+            >
+              <tab.icon size={24} />
+            </button>
+          )
+        ))}
+      </div>
+      <div className="flex-grow overflow-auto p-4">
+        <ErrorBoundary>
+          {isLoading && <LoadingSpinner />}
+          <Suspense fallback={<LoadingSpinner />}>
+            <div style={{ visibility: isLoading ? 'hidden' : 'visible' }}>
+              {activeTab === 'home' && (
+                <>
                   <SummaryCards onContentLoaded={() => handleContentLoaded('home')} />
                   <div className="mt-6">
                     <MonthlyProfitLossChart onContentLoaded={() => handleContentLoaded('home')} />
@@ -68,28 +112,18 @@ const HomeTab: React.FC = () => {
                   <div className="mt-6">
                     <Calendar onContentLoaded={() => handleContentLoaded('home')} />
                   </div>
-                </TabsContent>
-                <TabsContent value="open-positions">
-                  <OpenPositions onContentLoaded={() => handleContentLoaded('open-positions')} />
-                </TabsContent>
-                <TabsContent value="closed-positions">
-                  <ClosedPositions onContentLoaded={() => handleContentLoaded('closed-positions')} />
-                </TabsContent>
-                <TabsContent value="stocks">
-                  <Stocks onContentLoaded={() => handleContentLoaded('stocks')} />
-                </TabsContent>
-                <TabsContent value="dividends">
-                  <Dividends onContentLoaded={() => handleContentLoaded('dividends')} />
-                </TabsContent>
-                <TabsContent value="details">
-                  <Details onContentLoaded={() => handleContentLoaded('details')} />
-                </TabsContent>
-              </div>
-            </Suspense>
-          </ErrorBoundary>
-        </div>
-      </Tabs>
-    </div>
+                </>
+              )}
+              {activeTab === 'open-positions' && <OpenPositions onContentLoaded={() => handleContentLoaded('open-positions')} />}
+              {activeTab === 'closed-positions' && <ClosedPositions onContentLoaded={() => handleContentLoaded('closed-positions')} />}
+              {activeTab === 'stocks' && <Stocks onContentLoaded={() => handleContentLoaded('stocks')} />}
+              {activeTab === 'dividends' && <Dividends onContentLoaded={() => handleContentLoaded('dividends')} />}
+              {activeTab === 'details' && <Details onContentLoaded={() => handleContentLoaded('details')} />}
+            </div>
+          </Suspense>
+        </ErrorBoundary>
+      </div>
+    </>
   );
 };
 

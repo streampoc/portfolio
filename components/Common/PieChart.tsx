@@ -64,6 +64,12 @@ const PieChart: React.FC<PieChartProps> = ({ data, colors, title, description })
     setActiveIndex(index);
   };
 
+  // Transform data to include originalValue
+  const transformedData = data.map(item => ({
+    ...item,
+    originalValue: item.value
+  }));
+
   return (
     <Card className="bg-card text-card-foreground border-0">
       <CardHeader>
@@ -76,7 +82,7 @@ const PieChart: React.FC<PieChartProps> = ({ data, colors, title, description })
             <Pie
               activeIndex={activeIndex}
               activeShape={renderActiveShape}
-              data={data}
+              data={transformedData}
               cx="50%"
               cy="50%"
               innerRadius={60}

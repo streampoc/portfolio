@@ -54,32 +54,6 @@ export function DataTable<TData, TValue>({
   const [rowSelection, setRowSelection] = React.useState({})
   const [globalFilter, setGlobalFilter] = React.useState('')
 
-  React.useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      let visibleColumns: string[];
-
-      if (width < 640) { // Small screens
-        visibleColumns = columns.slice(0, 2).map(col => col.id as string);
-      } else if (width < 1024) { // Medium screens
-        visibleColumns = columns.slice(0, 4).map(col => col.id as string);
-      } else { // Large screens
-        visibleColumns = columns.map(col => col.id as string);
-      }
-
-      setColumnVisibility(
-        columns.reduce((acc, column) => {
-          acc[column.id as string] = visibleColumns.includes(column.id as string);
-          return acc;
-        }, {} as VisibilityState)
-      );
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [columns]);
-
   const table = useReactTable({
     data,
     columns,
@@ -101,6 +75,31 @@ export function DataTable<TData, TValue>({
       globalFilter,
     },
   })
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      let visibleColumnCount: number;
+
+      if (width < 640) { // Small screens
+        visibleColumnCount = 3;
+      } else if (width < 1024) { // Medium screens
+        visibleColumnCount = 4;
+      } else if (width < 1280) { // Large screens
+        visibleColumnCount = 5;
+      } else { // Extra large screens
+        visibleColumnCount = columns.length;
+      }
+
+      table.getAllColumns().forEach((column, index) => {
+        column.toggleVisibility(index < visibleColumnCount);
+      });
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [table, columns]);
 
   const exportToCSV = () => {
     // Get visible columns
@@ -147,13 +146,13 @@ export function DataTable<TData, TValue>({
           onChange={(event) => table.setGlobalFilter(event.target.value)}
           className="max-w-sm mb-4 sm:mb-0"
         />
-        <div className="flex ml-0 sm:ml-auto space-x-2">
-          <Button onClick={exportToCSV} variant="secondary">
+        <div className="flex ml-0 sm:ml-auto space-x-2 mt-4 sm:mt-0">
+          <Button onClick={exportToCSV} variant="secondary" className="text-xs sm:text-sm">
             Export CSV
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="secondary">
+              <Button variant="secondary" className="text-xs sm:text-sm">
                 Columns <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -179,92 +178,98 @@ export function DataTable<TData, TValue>({
           </DropdownMenu>
         </div>
       </div>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader className="bg-muted">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id} className="font-bold text-foreground">
-                      {header.isPlaceholder
-                        ? null
-                        : (
-                          <div
-                            {...{
-                              className: header.column.getCanSort()
-                                ? 'cursor-pointer select-none flex items-center'
-                                : '',
-                              onClick: header.column.getToggleSortingHandler(),
-                            }}
-                          >
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                            {{
-                              asc: ' 🔼',
-                              desc: ' 🔽',
-                            }[header.column.getIsSorted() as string] ?? null}
-                          </div>
-                        )}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="text-foreground">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              showNoResultsMessage && (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center text-foreground">
-                    No data available for the selected filters.
-                  </TableCell>
-                </TableRow>
-              )
-            )}
-          </TableBody>
-          {showFooter && (
+      <div className="rounded-md border p-1">
+        <div className="relative" style={{ maxHeight: '500px', overflow: 'auto' }}>
+          <Table>
             <TableHeader className="bg-muted">
-              {table.getFooterGroups().map((footerGroup) => (
-                <TableRow key={footerGroup.id}>
-                  {footerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="font-bold text-foreground">
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.footer,
-                            header.getContext()
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    return (
+                      <TableHead key={header.id} className="font-bold text-foreground">
+                        {header.isPlaceholder
+                          ? null
+                          : (
+                            <div
+                              {...{
+                                className: header.column.getCanSort()
+                                  ? 'cursor-pointer select-none flex items-center'
+                                  : '',
+                                onClick: header.column.getToggleSortingHandler(),
+                              }}
+                            >
+                              {flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                              {{
+                                asc: ' 🔼',
+                                desc: ' 🔽',
+                              }[header.column.getIsSorted() as string] ?? null}
+                            </div>
                           )}
-                    </TableHead>
-                  ))}
+                      </TableHead>
+                    )
+                  })}
                 </TableRow>
               ))}
             </TableHeader>
-          )}
-        </Table>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className="text-foreground">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                showNoResultsMessage && (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center text-foreground">
+                      No data available for the selected filters.
+                    </TableCell>
+                  </TableRow>
+                )
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        {showFooter && (
+          <div className="bg-muted border-t">
+            <Table>
+              <TableFooter>
+                {table.getFooterGroups().map((footerGroup) => (
+                  <TableRow key={footerGroup.id}>
+                    {footerGroup.headers.map((header) => (
+                      <TableHead key={header.id} className="font-bold text-foreground">
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.footer,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableFooter>
+            </Table>
+          </div>
+        )}
       </div>
       {showPagination && (
-        <div className="flex items-center justify-between space-x-2 py-4">
-          <div className="flex-1 text-sm text-muted-foreground">
+        <div className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0 sm:space-x-2 py-4">
+          <div className="text-sm text-muted-foreground">
             {table.getFilteredSelectedRowModel().rows.length} of{" "}
             {table.getFilteredRowModel().rows.length} row(s) selected.
           </div>
-          <div className="space-x-2">
+          <div className="flex space-x-2">
             <Button
               variant="secondary"
               size="sm"
