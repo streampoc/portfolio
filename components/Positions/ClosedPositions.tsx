@@ -225,7 +225,8 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
           <div className="mt-6">
           <Card>
           <CardHeader>
-            <CardTitle>Open Positions by Symbol</CardTitle>
+            <CardTitle>{isGroupedByMonth ? 'Profit/Loss by Month' : 'Profit/Loss by Symbol'} {appliedFilters.ticker !== 'ALL' ? `for ${appliedFilters.ticker}` : ''}
+            </CardTitle>
           </CardHeader>
           <CardContent>
           <BarChart
@@ -266,7 +267,7 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
             No data available for the selected filters.
           </div>
         )}
-        <div className="mt-6">
+{/*         <div className="mt-6">
           <Card>
           <CardContent>
                   <DataTable 
@@ -276,7 +277,7 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
                   />
                 </CardContent>
           </Card>
-        </div>
+        </div> */}
       </div>
         </Suspense>
       </ErrorBoundary>
