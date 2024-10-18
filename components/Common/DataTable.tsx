@@ -82,11 +82,11 @@ export function DataTable<TData, TValue>({
       let visibleColumnCount: number;
 
       if (width < 640) { // Small screens
-        visibleColumnCount = 3;
+        visibleColumnCount = 2;
       } else if (width < 1024) { // Medium screens
-        visibleColumnCount = 4;
+        visibleColumnCount = 3;
       } else if (width < 1280) { // Large screens
-        visibleColumnCount = 5;
+        visibleColumnCount = 4;
       } else { // Extra large screens
         visibleColumnCount = columns.length;
       }
