@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState,Suspense } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
 import BarChart from '../Common/BarChart';
 import { DataTable } from '../Common/DataTable';
 import { ColumnDef } from "@tanstack/react-table"
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import LoadingSpinner from '../Common/LoadingSpinner';
+import ErrorBoundary from '../Common/ErrorBoundary';
+
 
 interface ClosedPosition {
   id: number;
@@ -214,15 +216,17 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
   
 
   return (
-    <div>
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>
-            {isGroupedByMonth ? 'Profit/Loss by Month' : 'Profit/Loss by Symbol'} {appliedFilters.ticker !== 'ALL' ? `for ${appliedFilters.ticker}` : ''}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+    <div className="space-y-6 ">
+      <ErrorBoundary>
+        {isLoading && <LoadingSpinner />}
+        <Suspense fallback={<LoadingSpinner />}>
+          <div style={{ visibility: isLoading ? 'hidden' : 'visible' }}>
         {chartData.length > 0 ? (
+          <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Open Positions by Symbol</CardTitle>
+          </CardHeader>
+          <CardContent>
           <BarChart
             data={chartData}
             xDataKey={isGroupedByMonth ? "close_month" : "underlying_symbol"}
@@ -251,19 +255,26 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
               positive: chartConfig.total_profit_loss.color,
               negative: chartConfig.total_profit_loss.negativeColor,
             }}
-          />
+            />
+            </CardContent>
+          </Card>
         ) : (
-            <NoDataMessage />
-          )}
-        </CardContent>
-      </Card>
-      <div className="mt-8">
-        <DataTable 
-          columns={columns} 
-          data={closedPositions}
-          showNoResultsMessage={!isLoading && closedPositions.length === 0}
-        />
-      </div>
+          <div className="text-center p-4 mb-6">
+            No data available for the selected filters.
+          </div>
+        )}
+        <Card>
+        <CardContent>
+                <DataTable 
+                  columns={columns} 
+                  data={closedPositions}
+                  showNoResultsMessage={!isLoading && closedPositions.length === 0}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </Suspense>
+      </ErrorBoundary>
     </div>
   );
 };
