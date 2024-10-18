@@ -216,13 +216,14 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
   
 
   return (
-    <div className="space-y-6 ">
+    <div className="flex-grow overflow-auto p-4">
       <ErrorBoundary>
         {isLoading && <LoadingSpinner />}
         <Suspense fallback={<LoadingSpinner />}>
           <div style={{ visibility: isLoading ? 'hidden' : 'visible' }}>
         {chartData.length > 0 ? (
-          <Card className="mb-6">
+          <div className="mt-6">
+          <Card>
           <CardHeader>
             <CardTitle>Open Positions by Symbol</CardTitle>
           </CardHeader>
@@ -258,21 +259,25 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
             />
             </CardContent>
           </Card>
+          </div>
+                  
         ) : (
           <div className="text-center p-4 mb-6">
             No data available for the selected filters.
           </div>
         )}
-        <Card>
-        <CardContent>
-                <DataTable 
-                  columns={columns} 
-                  data={closedPositions}
-                  showNoResultsMessage={!isLoading && closedPositions.length === 0}
-                />
-              </CardContent>
-            </Card>
-          </div>
+        <div className="mt-6">
+          <Card>
+          <CardContent>
+                  <DataTable 
+                    columns={columns} 
+                    data={closedPositions}
+                    showNoResultsMessage={!isLoading && closedPositions.length === 0}
+                  />
+                </CardContent>
+          </Card>
+        </div>
+      </div>
         </Suspense>
       </ErrorBoundary>
     </div>
