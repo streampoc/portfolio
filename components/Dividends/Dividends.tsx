@@ -174,23 +174,18 @@ const Dividends: React.FC<DividendPositionsProps> = ({ onContentLoaded }) => {
   return (
     <div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Dividends by Symbol</CardTitle>
-          </CardHeader>
-          <CardContent>
+
             {groupedDividends.length > 0 ? (
               <PieChart
                 data={groupedDividends}
                 colors={pieChartColors}
-                title=""
+                title="Dividends by Symbol"
                 description=""
               />
             ) : (
               <NoDataMessage />
             )}
-          </CardContent>
-        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Monthly Dividend Trend</CardTitle>

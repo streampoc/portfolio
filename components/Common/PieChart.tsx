@@ -71,7 +71,7 @@ const PieChart: React.FC<PieChartProps> = ({ data, colors, title, description })
   }));
 
   return (
-    <Card className="bg-card text-card-foreground border-0">
+    <Card className="bg-card text-card-foreground">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {description && <CardDescription>{description}</CardDescription>}
