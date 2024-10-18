@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo,Suspense } from 'react';
+import React, { useEffect, useState, useMemo, Suspense } from 'react';
 
 import { useFilters } from '../../contexts/FilterContext';
 import BarChart from '../Common/BarChart';
@@ -143,67 +143,62 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ onContentLoaded }) => {
   }
 
   return (
-    <>
-    <div className="flex-grow overflow-auto p-4">
-        <ErrorBoundary>
-          {isLoading && <LoadingSpinner />}
-          <Suspense fallback={<LoadingSpinner />}>
-            <div style={{ visibility: isLoading ? 'hidden' : 'visible' }}>
-              <>
-                <div className="mt-6">
-                    {chartData.length > 0 ? (
-                      <Card>
-                      <CardContent>
-                          <BarChart
-                            data={chartData}
-                            xDataKey="symbol"
-                            yDataKey="total_value"
-                            layout={isLargeScreen ? "horizontal" : "vertical"}
-                            isLargeScreen={isLargeScreen}
-                            formatXAxis={(value) => value}
-                            formatYAxis={formatCurrency}
-                            formatTooltip={(value: number, name: string, props: any) => {
-                              const formattedValue = formatCurrency(value);
-                              const axisLabel = isLargeScreen
-                                ? formattedValue
-                                : props.payload.symbol;
-                              const valueLabel = isLargeScreen 
-                                ? props.payload.symbol
-                                : formattedValue;
-                              return [`${valueLabel} (${axisLabel})`, name];
-                            }}
-                            labelFormatter={(label) => `Symbol: ${label}`}
-                            barSize={isLargeScreen ? 20 : 20}
-                            colors={{
-                              positive: 'hsl(152, 57.5%, 37.6%)',
-                              negative: 'hsl(4, 90%, 58%)',
-                            }}
-                          />
-                          </CardContent>
-                      </Card>
-                  ) : (
-                    <div className="text-center p-4">
-                      No data available for the selected filters.
-                    </div>
-                  )}
-                </div>
-                <div className="mt-6">
-                <Card>
-                  <CardContent>
-                    <DataTable 
-                      columns={columns} 
-                      data={openPositions}
-                      showNoResultsMessage={!isLoading && openPositions.length === 0}
-                    />
-                    </CardContent>
-                  </Card>
-                </div>
-              </>
-            </div>
-          </Suspense>
-        </ErrorBoundary>
-      </div>
-    </>
+    <div className="space-y-6 ">
+      <ErrorBoundary>
+        {isLoading && <LoadingSpinner />}
+        <Suspense fallback={<LoadingSpinner />}>
+          <div style={{ visibility: isLoading ? 'hidden' : 'visible' }}>
+            {chartData.length > 0 ? (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle>Open Positions by Symbol</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <BarChart
+                    data={chartData}
+                    xDataKey="symbol"
+                    yDataKey="total_value"
+                    layout={isLargeScreen ? "horizontal" : "vertical"}
+                    isLargeScreen={isLargeScreen}
+                    formatXAxis={(value) => value}
+                    formatYAxis={formatCurrency}
+                    formatTooltip={(value: number, name: string, props: any) => {
+                      const formattedValue = formatCurrency(value);
+                      const axisLabel = isLargeScreen
+                        ? formattedValue
+                        : props.payload.symbol;
+                      const valueLabel = isLargeScreen 
+                        ? props.payload.symbol
+                        : formattedValue;
+                      return [`${valueLabel} (${axisLabel})`, name];
+                    }}
+                    labelFormatter={(label) => `Symbol: ${label}`}
+                    barSize={isLargeScreen ? 20 : 20}
+                    colors={{
+                      positive: 'hsl(152, 57.5%, 37.6%)',
+                      negative: 'hsl(4, 90%, 58%)',
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="text-center p-4 mb-6">
+                No data available for the selected filters.
+              </div>
+            )}
+            <Card>
+              <CardContent>
+                <DataTable 
+                  columns={columns} 
+                  data={openPositions}
+                  showNoResultsMessage={!isLoading && openPositions.length === 0}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </Suspense>
+      </ErrorBoundary>
+    </div>
   );
 };
 

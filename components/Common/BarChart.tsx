@@ -34,7 +34,7 @@ const BarChart: React.FC<BarChartProps> = ({
 }) => {
   const margin = isLargeScreen 
     ? { top: 10, right: 10, left: 30, bottom: 5 }
-    : { top: 5, right: 5, left: 20, bottom: 5 };
+    : { top: 5, right: 5, left: 5, bottom: 5 };
 
   // Transform data to use absolute values for scaling
   const transformedData = data.map(item => ({
