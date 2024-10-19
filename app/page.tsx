@@ -1,36 +1,14 @@
-'use client'
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
-import { Metadata } from "next"
-import HomeTab from "@/components/Home/HomeTab"
-import { FilterProvider } from '@/contexts/FilterContext'
-import { ThemeToggle } from "@/components/Common/ThemeToggle"
-import { BarChart2 } from 'lucide-react' // Temporary logo icon
-
-export default function TradingDashboardPage() {
-  const handleThemeChange = () => {
-    // Any additional logic for theme change if needed
-  };
-
+export default function LandingPage() {
   return (
-    <FilterProvider>
-      <div className="bg-background min-h-screen flex">
-        <div className="flex flex-col flex-grow">
-          <header className="flex justify-between items-center">
-            <div className="flex items-center">
-              <div className="bg-background w-16 h-16 flex items-center justify-center border-r border-border">
-                <BarChart2 className="h-8 w-8 text-primary" /> {/* Temporary logo */}
-              </div>
-              <h1 className="text-2xl font-bold text-foreground ml-4">Trading Dashboard</h1>
-            </div>
-            <div className="p-4">
-              <ThemeToggle onThemeChange={handleThemeChange} />
-            </div>
-          </header>
-          <div className="flex flex-grow">
-            <HomeTab />
-          </div>
-        </div>
-      </div>
-    </FilterProvider>
-  )
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground">
+      <h1 className="text-4xl font-bold mb-6">Welcome to Trading Dashboard</h1>
+      <p className="text-xl mb-8">Analyze and visualize your trading data with ease.</p>
+      <Link href="/dashboard">
+        <Button size="lg">Enter Dashboard</Button>
+      </Link>
+    </div>
+  );
 }
