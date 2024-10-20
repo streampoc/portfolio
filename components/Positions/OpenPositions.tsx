@@ -142,6 +142,14 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ onContentLoaded }) => {
     );
   }
 
+  const chartConfig = {
+    total_value: {
+      label: 'Net Profit',
+      color: 'hsl(152, 57.5%, 37.6%)',
+      negativeColor: 'hsl(4, 90%, 58%)',
+    },
+  };
+
   return (
     <div className="space-y-6 ">
       <ErrorBoundary>
@@ -173,10 +181,10 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ onContentLoaded }) => {
                       return [`${valueLabel} (${axisLabel})`, name];
                     }}
                     labelFormatter={(label) => `Symbol: ${label}`}
-                    barSize={isLargeScreen ? 20 : 20}
+                    barSize={isLargeScreen ? 20 : 15}
                     colors={{
-                      positive: 'hsl(152, 57.5%, 37.6%)',
-                      negative: 'hsl(4, 90%, 58%)',
+                      positive: chartConfig.total_value.color,
+                      negative: chartConfig.total_value.negativeColor,
                     }}
                   />
                 </CardContent>

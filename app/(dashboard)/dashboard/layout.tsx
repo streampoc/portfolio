@@ -3,14 +3,26 @@
 import { useState,useEffect } from 'react';
 import { FilterProvider } from '@/contexts/FilterContext'
 import { ThemeToggle } from "@/components/Common/ThemeToggle"
-import { BarChart2, Home, BookOpen, Book, BoxesIcon, DollarSign, FileText, Filter } from 'lucide-react'
+import { BarChart2, CircleIcon, Settings,Home, LogOut, BookOpen, Book, BoxesIcon, DollarSign, FileText, Filter } from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import Sidebar from '@/components/Sidebar';
 import DashboardContent from '@/components/DashboardContent';
 import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
 
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useUser } from '@/lib/auth';
+import { signOut } from '@/app/(login)/actions';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 
 const tabs = [
@@ -21,14 +33,25 @@ const tabs = [
   { id: 'stocks', label: 'Stocks', icon: BoxesIcon },
   { id: 'dividends', label: 'Dividends', icon: DollarSign },
   { id: 'details', label: 'Details', icon: FileText },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
 export default function TradingDashboardPage() {
   const [activeTab, setActiveTab] = useState('home');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, setUser } = useUser();
+
   const router = useRouter();
 
   const pathname = usePathname();
+
+  async function handleSignOut() {
+    setUser(null);
+    await signOut();
+    router.push('/');
+  }
 
   useEffect(() => {
     const currentTab = pathname.split('/').pop() || 'home';
@@ -94,6 +117,7 @@ export default function TradingDashboardPage() {
               </button>
             )
           ))}
+          <ThemeToggle onThemeChange={handleThemeChange} />
         </div>
         <div className="flex flex-col flex-grow">
           <header className="flex justify-between items-center p-4">
@@ -101,7 +125,41 @@ export default function TradingDashboardPage() {
               <BarChart2 className="h-8 w-8 text-primary mr-4" />
               <h1 className="text-2xl font-bold text-foreground">Trading Dashboard</h1>
             </div>
-            <ThemeToggle onThemeChange={handleThemeChange} />
+            {user ? (
+            <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+              <DropdownMenuTrigger asChild>
+                <Avatar className="cursor-pointer size-9">
+                  <AvatarImage alt={user.name || ''}/>
+                  <AvatarFallback>
+                    {user.email
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .toUpperCase()
+                      }
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="flex flex-col gap-1">
+                <DropdownMenuItem className="cursor-pointer">
+                  <Link href="/dashboard/settings" className="flex w-full items-center">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </Link>
+                </DropdownMenuItem>
+                <form action={handleSignOut} className="w-full">
+                  <button type="submit" className="flex w-full">
+                    <DropdownMenuItem className="w-full flex-1 cursor-pointer">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Sign out</span>
+                    </DropdownMenuItem>
+                  </button>
+                </form>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) :''}
+         
+
           </header>
           <main className="flex-grow overflow-auto p-4">
             <DashboardContent activeTab={activeTab} />
