@@ -27,6 +27,7 @@ interface ClosedPosition {
 
 interface ClosedPositionsProps {
     onContentLoaded: () => void;
+    content_type:string;
 }
 
 interface ClosedPositionBySymbol {
@@ -53,7 +54,7 @@ const getMonthAbbreviation = (monthNumber: string): string => {
   return monthAbbreviations[index] || monthNumber;
 };
 
-const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) => {
+const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded,content_type }) => {
   const { appliedFilters } = useFilters();
   const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
   const [chartData, setChartData] = useState<ClosedPositionBySymbol[] | ClosedPositionByMonth[]>([]);
@@ -62,13 +63,14 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
 
   useEffect(() => {
     const handleResize = () => {
-      setIsLargeScreen(window.innerWidth >= 1024); // 1024px is typically the breakpoint for large screens
+      setIsLargeScreen(window.innerWidth >= 1024);
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -82,26 +84,31 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
         const queryParams = new URLSearchParams(filterParams);
         
         // Fetch closed positions
-        const closedPositionsResponse = await fetch('/api/getClosedPositions?' + queryParams);
-        if (!closedPositionsResponse.ok) {
-          throw new Error('Failed to fetch closed positions');
-        }
-        const closedPositionsData = await closedPositionsResponse.json();
-        setClosedPositions(closedPositionsData);
+        if(content_type === 'datatable'){
+          const closedPositionsResponse = await fetch('/api/getClosedPositions?' + queryParams);
+          if (!closedPositionsResponse.ok) {
+            throw new Error('Failed to fetch closed positions');
+          }
+          const closedPositionsData = await closedPositionsResponse.json();
+          setClosedPositions(closedPositionsData);
+       }
 
         // Fetch data for the chart
-        let chartDataResponse;
-        if (appliedFilters.ticker !== 'ALL' && appliedFilters.month === 'ALL') {
-          chartDataResponse = await fetch('/api/getClosedPositionsByMonth?' + queryParams);
-        } else {
-          chartDataResponse = await fetch('/api/getClosedPositionsBySymbol?' + queryParams);
+        if(content_type === 'barchart'){
+          let chartDataResponse;
+          if (appliedFilters.ticker !== 'ALL' && appliedFilters.month === 'ALL') {
+            chartDataResponse = await fetch('/api/getClosedPositionsByMonth?' + queryParams);
+          } else {
+            chartDataResponse = await fetch('/api/getClosedPositionsBySymbol?' + queryParams);
+          }
+          
+          if (!chartDataResponse.ok) {
+            throw new Error('Failed to fetch chart data');
+          }
+          const chartDataResult = await chartDataResponse.json();
+          setChartData(chartDataResult);
         }
-        
-        if (!chartDataResponse.ok) {
-          throw new Error('Failed to fetch chart data');
-        }
-        const chartDataResult = await chartDataResponse.json();
-        setChartData(chartDataResult);
+
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -190,9 +197,8 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
     },
   };
 
-  const isGroupedByMonth = appliedFilters.ticker !== 'ALL' && appliedFilters.month === 'ALL';
   
-  const calculateChartHeight = () => {
+/*   const calculateChartHeight = () => {
     const baseHeight = 400;
     const itemHeight = isLargeScreen ? 25 : 30;
     const itemCount = chartData.length;
@@ -202,87 +208,81 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded }) =>
     } else {
       return Math.max(baseHeight, itemCount * itemHeight);
     }
-  };
+  }; */
 
   if (isLoading) {
     return <LoadingSpinner />;
   }
-
-  const NoDataMessage = () => (
-    <div className="text-center p-4">
-      No data available for the selected filters.
-    </div>
-  );
   
+  if(content_type === 'barchart'){
 
+  const isGroupedByMonth = appliedFilters.ticker !== 'ALL' && appliedFilters.month === 'ALL';
+  if (chartData.length === 0) {
+
+    return (
+      <Card>
+        <CardHeader>
+        <CardTitle>{isGroupedByMonth ? 'Profit/Loss by Month' : 'Profit/Loss by Symbol'} {appliedFilters.ticker !== 'ALL' ? `for ${appliedFilters.ticker}` : ''}
+        </CardTitle>
+                </CardHeader>
+        <CardContent>
+          <p>No data available for the selected filters.</p>
+        </CardContent>
+      </Card>
+    );
+  }
   return (
-    <div className="flex-grow overflow-auto p-4">
-      <ErrorBoundary>
-        {isLoading && <LoadingSpinner />}
-        <Suspense fallback={<LoadingSpinner />}>
-          <div style={{ visibility: isLoading ? 'hidden' : 'visible' }}>
-        {chartData.length > 0 ? (
-          <div className="mt-6">
-          <Card>
-          <CardHeader>
-            <CardTitle>{isGroupedByMonth ? 'Profit/Loss by Month' : 'Profit/Loss by Symbol'} {appliedFilters.ticker !== 'ALL' ? `for ${appliedFilters.ticker}` : ''}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-          <BarChart
-            data={chartData}
-            xDataKey={isGroupedByMonth ? "close_month" : "underlying_symbol"}
-            yDataKey="total_profit_loss"
-            layout={isLargeScreen ? "horizontal" : "vertical"}
-            isLargeScreen={isLargeScreen}
-            formatXAxis={isGroupedByMonth ? getMonthAbbreviation : undefined}
-            formatYAxis={formatCurrency}
-            formatTooltip={(value: number, name: string, props: any) => {
-              const formattedValue = formatCurrency(value);
-              const axisLabel = isLargeScreen
-                ? props.payload.underlying_symbol || getMonthAbbreviation(props.payload.close_month)
-                : formattedValue;
-              const valueLabel = isLargeScreen 
-                ? formattedValue 
-                : props.payload.underlying_symbol || getMonthAbbreviation(props.payload.close_month);
-              return [`${valueLabel} (${axisLabel})`, name];
-            }}
-            labelFormatter={(label) => {
-              return isGroupedByMonth
-                ? `Month: ${getMonthAbbreviation(label)}`
-                : `Symbol: ${label}`;
-            }}
-            barSize={isLargeScreen ? 20 : 15}
-            colors={{
-              positive: chartConfig.total_profit_loss.color,
-              negative: chartConfig.total_profit_loss.negativeColor,
-            }}
-            />
-            </CardContent>
-          </Card>
-          </div>
-                  
-        ) : (
-          <div className="text-center p-4 mb-6">
-            No data available for the selected filters.
-          </div>
-        )}
-        <div className="mt-6">
-          <Card>
-          <CardContent>
-                  <DataTable 
-                    columns={columns} 
-                    data={closedPositions}
-                    showNoResultsMessage={!isLoading && closedPositions.length === 0}
-                  />
-                </CardContent>
-          </Card>
-        </div>
-      </div>
-        </Suspense>
-      </ErrorBoundary>
-    </div>
+      <Card>
+      <CardHeader>
+        <CardTitle>{isGroupedByMonth ? 'Profit/Loss by Month' : 'Profit/Loss by Symbol'} {appliedFilters.ticker !== 'ALL' ? `for ${appliedFilters.ticker}` : ''}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+      <BarChart
+        data={chartData}
+        xDataKey={isGroupedByMonth ? "close_month" : "underlying_symbol"}
+        yDataKey="total_profit_loss"
+        layout={isLargeScreen ? "horizontal" : "vertical"}
+        isLargeScreen={isLargeScreen}
+        formatXAxis={isGroupedByMonth ? getMonthAbbreviation : undefined}
+        formatYAxis={formatCurrency}
+        formatTooltip={(value: number, name: string, props: any) => {
+          const formattedValue = formatCurrency(value);
+          const axisLabel = isLargeScreen
+            ? props.payload.underlying_symbol || getMonthAbbreviation(props.payload.close_month)
+            : formattedValue;
+          const valueLabel = isLargeScreen 
+            ? formattedValue 
+            : props.payload.underlying_symbol || getMonthAbbreviation(props.payload.close_month);
+          return [`${valueLabel} (${axisLabel})`, name];
+        }}
+        labelFormatter={(label) => {
+          return isGroupedByMonth
+            ? `Month: ${getMonthAbbreviation(label)}`
+            : `Symbol: ${label}`;
+        }}
+        barSize={isLargeScreen ? 20 : 15}
+        colors={{
+          positive: chartConfig.total_profit_loss.color,
+          negative: chartConfig.total_profit_loss.negativeColor,
+        }}
+        />
+        </CardContent>
+      </Card>
   );
+  } else if(content_type === 'datatable'){
+    return (
+      <Card>
+      <CardContent>
+              <DataTable 
+                columns={columns} 
+                data={closedPositions}
+                showNoResultsMessage={!isLoading && closedPositions.length === 0}
+              />
+            </CardContent>
+      </Card>
+    );
+  }
 };
 
 export default ClosedPositions;
