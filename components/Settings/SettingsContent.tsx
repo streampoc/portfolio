@@ -3,6 +3,8 @@ import LoadingSpinner from '../Common/LoadingSpinner';
 import ErrorBoundary from '../Common/ErrorBoundary';
 
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import Security from './Security';
+import General from './General';
 
 
 interface SettingsContentProps {
@@ -19,30 +21,10 @@ interface SettingsContentProps {
       <ErrorBoundary>
         <Suspense fallback={<LoadingSpinner />}>
             <div className="mt-6">
-            <Card>
-                <CardHeader>
-                <CardTitle>General</CardTitle>
-                </CardHeader>
-                <CardContent>
-                <p>Yet to be implemented</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                <CardTitle>Subscriptions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                <p>Yet to be implemented</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                <CardTitle>Security</CardTitle>
-                </CardHeader>
-                <CardContent>
-                <p>Yet to be implemented</p>
-                </CardContent>
-            </Card>
+                <General/>
+            </div>
+            <div className="mt-6">
+                <Security/>
             </div>
         </Suspense>
       </ErrorBoundary>

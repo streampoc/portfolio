@@ -26,7 +26,46 @@ const signInSchema = z.object({
   password: z.string().min(8).max(100),
 });
 
+const signUpSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8)
+});
+
 export const signUp = validatedAction(signInSchema, async (data, formData) => {
+  const { email, password } = data;
+  
+  const existingUser = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  
+    if (existingUser.length > 0) {
+      return { error: 'Failed to create user. Please try again.' };
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    const newUser: NewUser = {
+      email,
+      passwordHash,
+      role: 'owner', // Default role, will be overridden if there's an invitation
+    };
+
+    const [createdUser] = await db.insert(users).values(newUser).returning();
+
+    if (!createdUser) {
+      return { error: 'Failed to create user. Please try again.' };
+    }
+
+    await Promise.all([
+      setSession(createdUser),
+    ]);
+  
+    const redirectTo = formData.get('redirect') as string | null;
+    
+    redirect('/dashboard/home');
+
 });
 
 export const signIn = validatedAction(signInSchema, async (data, formData) => {
