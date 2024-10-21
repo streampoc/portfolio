@@ -161,7 +161,7 @@ export default function TradingDashboardPage() {
          
 
           </header>
-          <main className="flex-grow overflow-auto p-4">
+          <main className="flex-grow overflow-auto p-3">
             <DashboardContent activeTab={activeTab} />
           </main>
         </div>

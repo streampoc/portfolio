@@ -34,7 +34,7 @@ const BarChart: React.FC<BarChartProps> = ({
 }) => {
   const margin = isLargeScreen 
     ? { top: 10, right: 10, left: 30, bottom: 5 }
-    : { top: 5, right: 5, left: 5, bottom: 5 };
+    : { top: 5, right: 2, left: 5, bottom: 5 };
 
   // Transform data to use absolute values for scaling
   const transformedData = data.map(item => ({
@@ -46,12 +46,12 @@ const BarChart: React.FC<BarChartProps> = ({
   const calculateDomain = (dataKey: string) => {
     const values = transformedData.map(item => item[dataKey]);
     const maxValue = Math.max(...values);
-    const padding = maxValue * 0.2; // Reduce padding to 10%
+    const padding = maxValue * 0.1; // Reduce padding to 10%
     return [0, Math.ceil(maxValue + padding)]; // Round up to the nearest integer
   };
 
-  const chartHeight = isLargeScreen ? 400 : Math.max(400, data.length * 25);
-  const calculatedBarSize = Math.min(barSize, (isLargeScreen ? 400 : chartHeight) / data.length / 3);
+  const chartHeight = isLargeScreen ? 400 : Math.max(400, data.length * 20);
+  const calculatedBarSize = Math.min(barSize, (isLargeScreen ? 400 : chartHeight) / data.length / 2);
 
   return (
     <ResponsiveContainer width="100%" height={chartHeight}>
@@ -59,7 +59,8 @@ const BarChart: React.FC<BarChartProps> = ({
         data={transformedData}
         layout={layout}
         margin={margin}
-        barCategoryGap={`${calculatedBarSize}%`}
+        //barCategoryGap={`${calculatedBarSize}%`}
+        barCategoryGap={0.5}
         barGap={2}
       >
         {layout === 'horizontal' ? (
@@ -107,7 +108,7 @@ const BarChart: React.FC<BarChartProps> = ({
         <Bar 
           dataKey={yDataKey} 
           name="Value" 
-          barSize={calculatedBarSize}
+          //barSize={calculatedBarSize}
           minPointSize={2}
         >
           {transformedData.map((entry, index) => (
