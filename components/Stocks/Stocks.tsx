@@ -60,10 +60,7 @@ const Stocks: React.FC<StockPositionsProps> = ({ onContentLoaded }) => {
       accessorKey: "symbol",
       header: "Symbol",
     },
-    {
-      accessorKey: "underlying_symbol",
-      header: "Underlying Symbol",
-    },
+    
     {
       accessorKey: "quantity",
       header: "Quantity",
@@ -86,6 +83,10 @@ const Stocks: React.FC<StockPositionsProps> = ({ onContentLoaded }) => {
       cell: ({ row }) => {
         return new Date(row.getValue("open_date")).toLocaleDateString();
       },
+    },
+    {
+      accessorKey: "underlying_symbol",
+      header: "Underlying Symbol",
     },
   ];
 

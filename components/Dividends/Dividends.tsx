@@ -130,10 +130,6 @@ const Dividends: React.FC<DividendPositionsProps> = ({ onContentLoaded }) => {
       header: "Symbol",
     },
     {
-      accessorKey: "transaction_type",
-      header: "Transaction Type",
-    },
-    {
       accessorKey: "profit_loss",
       header: "Amount",
       cell: ({ row }) => {
@@ -150,6 +146,10 @@ const Dividends: React.FC<DividendPositionsProps> = ({ onContentLoaded }) => {
       header: "Date",
       cell: ({ row }) => new Date(row.getValue("close_date")).toLocaleDateString(),
     },
+    {
+      accessorKey: "transaction_type",
+      header: "Transaction Type",
+    }
   ];
 
   const pieChartColors = [

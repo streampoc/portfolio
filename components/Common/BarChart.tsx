@@ -46,12 +46,12 @@ const BarChart: React.FC<BarChartProps> = ({
   const calculateDomain = (dataKey: string) => {
     const values = transformedData.map(item => item[dataKey]);
     const maxValue = Math.max(...values);
-    const padding = maxValue * 0.1; // Reduce padding to 10%
+    const padding = maxValue * 0.2; // Reduce padding to 10%
     return [0, Math.ceil(maxValue + padding)]; // Round up to the nearest integer
   };
 
   const chartHeight = isLargeScreen ? 400 : Math.max(400, data.length * 25);
-  const calculatedBarSize = Math.min(barSize, (isLargeScreen ? 400 : chartHeight) / data.length / 2);
+  const calculatedBarSize = Math.min(barSize, (isLargeScreen ? 400 : chartHeight) / data.length / 3);
 
   return (
     <ResponsiveContainer width="100%" height={chartHeight}>

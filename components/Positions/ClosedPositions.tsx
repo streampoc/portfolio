@@ -261,7 +261,7 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded,conte
             ? `Month: ${getMonthAbbreviation(label)}`
             : `Symbol: ${label}`;
         }}
-        barSize={isLargeScreen ? 20 : 15}
+        barSize={isLargeScreen ? 20 : 10}
         colors={{
           positive: chartConfig.total_profit_loss.color,
           negative: chartConfig.total_profit_loss.negativeColor,

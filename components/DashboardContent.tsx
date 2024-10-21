@@ -3,6 +3,7 @@
 import React, { lazy, Suspense } from 'react';
 import LoadingSpinner from './Common/LoadingSpinner';
 import ErrorBoundary from './Common/ErrorBoundary';
+import SettingsContent from './Settings/SettingsContent';
 
 const SummaryCards = lazy(() => import('./Home/SummaryCards'));
 const MonthlyProfitLossChart = lazy(() => import('./Home/MonthlyProfitLossChart'));
@@ -51,6 +52,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ activeTab }) => {
         {activeTab === 'stocks' && <Stocks onContentLoaded={handleContentLoaded} />}
         {activeTab === 'dividends' && <Dividends onContentLoaded={handleContentLoaded} />}
         {activeTab === 'details' && <Details onContentLoaded={handleContentLoaded} />}
+        {activeTab === 'settings' && <SettingsContent onContentLoaded={handleContentLoaded} />}
       </Suspense>
     </ErrorBoundary>
   );

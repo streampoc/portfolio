@@ -1,2 +1,3 @@
-export default function Settings() {
+export default function SettingsInfo() {
+
 }

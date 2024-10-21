@@ -48,7 +48,8 @@ export async function getWeeksByYearAndMonth(year: string, month: string) {
 
 // Add this function to the existing file
 export async function getDistinctTickers(account: string | null) {
-  let queryText = 'SELECT DISTINCT underlying_symbol FROM trades';
+  let queryText = `SELECT DISTINCT underlying_symbol FROM trades 
+  where transaction_type='Trade'`;
   const queryParams: any[] = [];
 
   /*if (account && account !== 'ALL') {

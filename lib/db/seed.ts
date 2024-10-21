@@ -21,6 +21,9 @@ async function seed() {
 
   console.log('Initial user created.');
 
+  /* await db.execute("COPY trades FROM './trades_report.csv' WITH (FORMAT csv)");
+  console.log('Initial trades loaded'); */
+
 }
 
 seed()
