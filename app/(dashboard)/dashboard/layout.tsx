@@ -4,7 +4,7 @@ import { useState,useEffect } from 'react';
 import { FilterProvider } from '@/contexts/FilterContext'
 import { ThemeToggle } from "@/components/Common/ThemeToggle"
 import { BarChart2, CircleIcon, Settings,Home, LogOut, BookOpen, Book, BoxesIcon, DollarSign, FileText, Filter } from 'lucide-react'
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import Sidebar from '@/components/Sidebar';
 import DashboardContent from '@/components/DashboardContent';
 import { useRouter } from 'next/navigation';
@@ -99,6 +99,7 @@ export default function TradingDashboardPage() {
                   </button>
                 </SheetTrigger>
                 <SheetContent side="left">
+                  <SheetTitle>Choose Filters and Apply </SheetTitle>
                   <Sidebar onClose={handleCloseFilter} />
                 </SheetContent>
               </Sheet>

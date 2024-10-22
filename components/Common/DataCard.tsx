@@ -4,12 +4,12 @@ import { Card, CardContent } from "@/components/ui/card"
 interface DataCardProps {
   title: string;
   value: string;
-  amount: number;
+  amount: number|undefined;
   className?: string;
 }
 
 const DataCard: React.FC<DataCardProps> = ({ title, value, amount, className }) => {
-  const textColorClass = amount >= 0 
+  const textColorClass = amount !== undefined && amount >= 0 
     ? 'text-green-600 dark:text-green-400' 
     : 'text-red-600 dark:text-red-400';
 

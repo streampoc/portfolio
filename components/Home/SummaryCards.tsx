@@ -21,6 +21,12 @@ interface MoneySummaryData {
   total_amount: string;
 }
 
+interface LifeSummaryData {
+  life_profit_loss?: number;
+  life_interest?: number;
+  life_cash?: number;
+}
+
 interface SummaryCardsProps {
   onContentLoaded: () => void;
 }
@@ -81,6 +87,33 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
     return [...summaryData].sort((a, b) => parseInt(b.close_year) - parseInt(a.close_year));
   }, [summaryData]);
 
+  //build lifetime profit/loss, cash and interest if 'All Years' selected.
+  let lifeSummaryData:LifeSummaryData = {}
+
+  if(appliedFilters.year=='All Years'){
+      let life_interest = 0;
+      let life_cash = 0;
+      let life_profit = 0;
+      moneySummaryData.map((moneyData) => {
+        if(moneyData.symbol == 'INTEREST')
+          life_interest += parseFloat(moneyData.total_amount);
+        else if (moneyData.symbol == 'CASH')
+          life_cash += parseFloat(moneyData.total_amount);
+      });
+      //now lets also get total p/l
+      summaryData.map((yearData) => {
+        const netProfitLoss = parseFloat(yearData.total_profit_loss) + 
+                              parseFloat(yearData.total_commissions) + 
+                              parseFloat(yearData.total_fees);
+          life_profit += netProfitLoss
+      });
+      lifeSummaryData = {
+        'life_profit_loss':life_profit,
+        'life_interest':life_interest,
+        'life_cash':life_cash
+      }
+  }
+
   const TouchFriendlyTooltip: React.FC<{ children: React.ReactNode; content: React.ReactNode }> = ({ children, content }) => {
     const [isTooltipOpen, setIsTooltipOpen] = useState(false);
   
@@ -123,6 +156,52 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
   return (
     <TooltipProvider>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+        {lifeSummaryData.life_profit_loss && (
+          <>
+              <TouchFriendlyTooltip
+                key={`${lifeSummaryData.life_profit_loss}`}
+                content={
+                  <p>Lifetime profit/loss {lifeSummaryData.life_profit_loss.toFixed(2)}</p>
+                }
+              >
+                <DataCard 
+                  title={`Lifetime P/L`}
+                  value={`${lifeSummaryData.life_profit_loss?.toFixed(2)}`}
+                  amount={lifeSummaryData.life_profit_loss}
+                  className="bg-white dark:bg-gray-800 w-full"
+                  aria-label={`Lifetime P/L is ${lifeSummaryData.life_profit_loss}`}
+                />
+              </TouchFriendlyTooltip>
+              <TouchFriendlyTooltip
+                key={`${lifeSummaryData.life_cash}`}
+                content={
+                  <p>Lifetime cash {lifeSummaryData.life_cash}</p>
+                }
+              >
+                <DataCard 
+                  title={`Lifetime Cash`}
+                  value={`${lifeSummaryData.life_cash}`}
+                  amount={lifeSummaryData.life_cash}
+                  className="bg-white dark:bg-gray-800 w-full"
+                  aria-label={`Lifetime Cash is ${lifeSummaryData.life_cash}`}
+                />
+            </TouchFriendlyTooltip>
+            <TouchFriendlyTooltip
+              key={`${lifeSummaryData.life_interest}`}
+              content={
+                <p>Lifetime interest {lifeSummaryData.life_interest?.toFixed(2)}</p>
+              }
+            >
+              <DataCard 
+                title={`Lifetime Interest`}
+                value={`${lifeSummaryData.life_interest?.toFixed(2)}`}
+                amount={lifeSummaryData.life_interest}
+                className="bg-white dark:bg-gray-800 w-full"
+                aria-label={`Lifetime Interest is ${lifeSummaryData.life_interest}`}
+              />
+            </TouchFriendlyTooltip>
+          </>
+        )}
         {sortedSummaryData.map((yearData) => {
           const netProfitLoss = parseFloat(yearData.total_profit_loss) + 
                                 parseFloat(yearData.total_commissions) + 

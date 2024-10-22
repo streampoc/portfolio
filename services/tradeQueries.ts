@@ -567,11 +567,16 @@ export async function getMoneySummary(filters: {
   ticker?: string | null
 }) {
   let queryText = `
-    SELECT 
-      close_year, symbol, SUM(profit_loss) as total_amount
-    FROM trades 
-    WHERE is_closed = true AND transaction_type = 'Money'
-    AND symbol = underlying_symbol
+    select symbol, close_year , sum(profit_loss)  as total_amount from (SELECT 
+          profit_loss,close_year,
+          case 
+              when (symbol = 'MARGIN') THEN 'INTEREST'
+              when (symbol = 'FUNDS') THEN 'CASH'
+          ELSE symbol
+          END AS symbol 
+          FROM trades 
+          WHERE is_closed = true AND transaction_type = 'Money'
+          AND symbol = underlying_symbol
   `;
   const queryParams: any[] = [];
 
@@ -585,7 +590,7 @@ export async function getMoneySummary(filters: {
     queryParams.push(filters.ticker);
   } */
 
-  queryText += ' GROUP BY close_year, symbol ORDER BY close_year DESC, symbol';
+  queryText += ` ) GROUP BY close_year, symbol ORDER BY close_year DESC, symbol`;
 
   try {
     console.log(`Executing query getMoneySummary: ${queryText} with params: ${JSON.stringify(queryParams)}`);
