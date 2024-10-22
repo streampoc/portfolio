@@ -84,10 +84,6 @@ const Stocks: React.FC<StockPositionsProps> = ({ onContentLoaded }) => {
         return new Date(row.getValue("open_date")).toLocaleDateString();
       },
     },
-    {
-      accessorKey: "underlying_symbol",
-      header: "Underlying Symbol",
-    },
   ];
 
   return (

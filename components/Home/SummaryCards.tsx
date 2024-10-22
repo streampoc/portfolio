@@ -112,6 +112,8 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
         'life_interest':life_interest,
         'life_cash':life_cash
       }
+
+      //here also remove cash and interest as we don't need all 
   }
 
   const TouchFriendlyTooltip: React.FC<{ children: React.ReactNode; content: React.ReactNode }> = ({ children, content }) => {
@@ -202,33 +204,52 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
             </TouchFriendlyTooltip>
           </>
         )}
-        {sortedSummaryData.map((yearData) => {
+        {summaryData.map((yearData) => {
           const netProfitLoss = parseFloat(yearData.total_profit_loss) + 
                                 parseFloat(yearData.total_commissions) + 
                                 parseFloat(yearData.total_fees);
           return (
+            <>
             <TouchFriendlyTooltip
               key={yearData.close_year}
               content={
                 <>
-                  <p>Net profit or loss after commissions and fees for {yearData.close_year}</p>
+                  <p>Profit/Loss before commissions and fees for {yearData.close_year}</p>
                   <p>Profit/Loss: {formatCurrency(parseFloat(yearData.total_profit_loss))}</p>
-                  <p>Commissions: {formatCurrency(parseFloat(yearData.total_commissions))}</p>
-                  <p>Fees: {formatCurrency(parseFloat(yearData.total_fees))}</p>
                 </>
               }
             >
               <DataCard 
                 title={`${yearData.close_year}`}
-                value={formatCurrency(netProfitLoss)}
-                amount={netProfitLoss}
+                value={formatCurrency(parseFloat(yearData.total_profit_loss))}
+                amount={parseFloat(yearData.total_profit_loss)}
                 className="bg-white dark:bg-gray-800 w-full"
-                aria-label={`Net Profit/Loss for ${yearData.close_year}`}
+                aria-label={`Profit/Loss for ${yearData.close_year}`}
               />
             </TouchFriendlyTooltip>
+            <TouchFriendlyTooltip
+            key={`${yearData.close_year}-NET`}
+            content={
+              <>
+                <p>Net after commissions and fees for {yearData.close_year}</p>
+                <p>Profit/Loss: {formatCurrency(parseFloat(yearData.total_profit_loss))}</p>
+                <p>Commissions: {formatCurrency(parseFloat(yearData.total_commissions))}</p>
+                <p>Fees: {formatCurrency(parseFloat(yearData.total_fees))}</p>
+              </>
+            }
+          >
+            <DataCard 
+              title={`${yearData.close_year} - NET`}
+              value={formatCurrency(netProfitLoss)}
+              amount={netProfitLoss}
+              className="bg-white dark:bg-gray-800 w-full"
+              aria-label={`Net Profit/Loss for ${yearData.close_year}`}
+            />
+          </TouchFriendlyTooltip>
+          </>
           );
         })}
-        {moneySummaryData.map((moneyData) => (
+        {appliedFilters.year !== 'All Years' && moneySummaryData.map((moneyData) => (
           <TouchFriendlyTooltip
             key={`${moneyData.close_year}-${moneyData.symbol}`}
             content={

@@ -205,13 +205,19 @@ export async function getClosedPositions(filters: any) {
 // Add this function to your existing tradeQueries.ts file
 export async function getStockPositions(filters: any) {
   let queryText = `
-    SELECT *
-    FROM trades 
+    SELECT symbol,sum(quantity) as quantity,
+            round(avg(open_price),2) as open_price,
+            sum(commissions) as commisions,
+            sum(fees) as fees,
+            max(open_date) as open_date, 
+            max(open_year) as open_year,
+            max(open_month) as open_month
+      FROM trades 
     WHERE symbol = underlying_symbol AND is_closed = false
   `;
   const queryParams: any[] = [];
 
-  if (filters.year && filters.year !== 'All Years') {
+  /* if (filters.year && filters.year !== 'All Years') {
     queryText += ' AND open_year = $' + (queryParams.length + 1);
     queryParams.push(filters.year);
   }
@@ -234,9 +240,9 @@ export async function getStockPositions(filters: any) {
   if (filters.ticker && filters.ticker !== 'ALL') {
     queryText += ' AND underlying_symbol = $' + (queryParams.length + 1);
     queryParams.push(filters.ticker);
-  }
+  } */
 
-  queryText += ' ORDER BY open_date DESC';
+  queryText += ' GROUP BY symbol ORDER BY open_date DESC';
 
   try {
     console.log(`Executing query getStockPositions: ${queryText} with params: ${JSON.stringify(queryParams)}`);
