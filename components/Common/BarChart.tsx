@@ -80,7 +80,7 @@ const BarChart: React.FC<BarChartProps> = ({
               type="number"
               tickFormatter={(value) => formatYAxis ? formatYAxis(value) : value.toString()}
               domain={calculateDomain(yDataKey)}
-              padding={{ top: 10, bottom: 10 }}
+              padding={{ top: 0, bottom: 0 }}
             />
           </>
         ) : (
@@ -89,7 +89,7 @@ const BarChart: React.FC<BarChartProps> = ({
               type="number"
               tickFormatter={(value) => formatYAxis ? formatYAxis(value) : value.toString()}
               domain={calculateDomain(yDataKey)}
-              padding={{ left: 5, right: 5 }}
+              padding={{ left: 0, right: 0 }}
             />
             <YAxis
               dataKey={xDataKey}
@@ -108,7 +108,7 @@ const BarChart: React.FC<BarChartProps> = ({
         <Bar 
           dataKey={yDataKey} 
           name="Value" 
-          //barSize={calculatedBarSize}
+          //barSize={calculatedBarSize} // this will set width of the bar..so it created more gap between bars.
           minPointSize={2}
         >
           {transformedData.map((entry, index) => (

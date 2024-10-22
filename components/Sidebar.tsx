@@ -25,7 +25,7 @@ export function Sidebar({ className, onClose }: SidebarProps) {
   const [isLoadingTickers, setIsLoadingTickers] = useState<boolean>(false);
 
   const accounts = ['ALL', 'TW', 'TD', 'RH'];
-  const years = ['All Years', ...Array.from({ length: 100 }, (_, i) => (2000 + i).toString())];
+  const years = ['All Years', ...Array.from({ length: 20 }, (_, i) => (2015 + i).toString())];
   const months = [
     { value: 'ALL', label: 'ALL' },
     { value: '1', label: 'JAN' },

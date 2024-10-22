@@ -107,6 +107,14 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded,conte
           }
           const chartDataResult = await chartDataResponse.json();
           setChartData(chartDataResult);
+          //we going to show horizontal bars if data set is large even on large screens.
+          if(chartDataResult.length>50){
+            setIsLargeScreen(false);
+          }else{
+            setIsLargeScreen(true);
+          }
+
+
         }
 
       } catch (error) {
