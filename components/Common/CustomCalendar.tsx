@@ -199,8 +199,13 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
                   content={
                     (dayData ||weeklyTotal) && (
                       <>
-                        <p>Date: {dayData?.date || `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`}</p>
-                      {dayData && <p>Daily P/L: {formatNumber(dayData.profitLoss)}</p>}
+                      {dayData && (
+                        <>
+                          <p>Date: {dayData?.date || `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`}</p>
+                          <p>Daily P/L: {formatNumber(dayData.profitLoss)}</p>
+                        </>
+                        )
+                      }
                       {weeklyTotal && (
                         <>
                           <p>Week (Mon-Fri): {weekDateRange}</p>
@@ -222,8 +227,8 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
                         </div>
                       </div>
                     )}
-                    {showWeeklyTotal && weeklyTotal !== null && (
-                      <div className="absolute top-0 right-0 left-0 text-[0.5rem] sm:text-xs leading-tight text-right p-0.5 bg-gray-100 dark:bg-gray-700 bg-opacity-75 dark:bg-opacity-75">
+                    {showWeeklyTotal && weeklyTotal !== null && weeklyTotal !== 0 && (
+                      <div className="absolute middle-0 right-0 left-0 text-[0.5rem] sm:text-xs leading-tight text-right p-0.5 bg-gray-100 dark:bg-gray-700 bg-opacity-75 dark:bg-opacity-75">
                         <div className={`font-bold truncate ${weeklyTotal >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                           {formatNumber(weeklyTotal)}
                         </div>
