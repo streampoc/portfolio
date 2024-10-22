@@ -37,9 +37,80 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   };
 
-  const getDayData = (day: number): DayData | undefined => {
-    const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const getDayData = (day: number, targetYear: number, targetMonth: number): DayData | undefined => {
+    const dateString = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return data.find(d => d.date === dateString);
+  };
+
+  // Check if this is the last day of the month
+  const shouldShowWeeklyTotal = (day: number): boolean => {
+    const dayOfWeek = (firstDayOfMonth + day - 1) % 7;
+    const isSaturday = dayOfWeek === 6;
+    const isSunday = dayOfWeek === 0;
+    
+    if (isSaturday && !isLastDayOfWeek(day)) {
+      // Show on Saturday if it's within the month
+      return true;
+    }
+    
+    if (isSunday) {
+      // Check if next Saturday is in next month
+      const nextSaturday = new Date(year, month, day + 6);
+      return nextSaturday.getMonth() !== month;
+    }
+    
+    return false;
+  };
+
+  const isLastDayOfWeek = (day: number): boolean => {
+    // Check if this week's Saturday falls in the next month
+    const currentDate = new Date(year, month, day);
+    const nextSaturday = new Date(year, month, day + (6 - currentDate.getDay()));
+    return nextSaturday.getMonth() !== month;
+  };
+
+  const getWeeklyTotal = (currentDay: number): number | null => {
+    if (!shouldShowWeeklyTotal(currentDay)) return null;
+
+    let total = 0;
+    let currentDate = new Date(year, month, currentDay);
+    const isSunday = currentDate.getDay() === 0;
+
+    if (isSunday) {
+      // For Sundays, look ahead to next Monday-Friday
+      currentDate.setDate(currentDate.getDate() + 1); // Move to Monday
+      for (let i = 0; i < 5; i++) { // Monday through Friday
+        const dayData = getDayData(
+          currentDate.getDate(),
+          currentDate.getFullYear(),
+          currentDate.getMonth()
+        );
+        
+        if (dayData?.profitLoss) {
+          total += dayData.profitLoss;
+        }
+        
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    } else {
+      // For Saturdays, look back to Monday-Friday
+      currentDate.setDate(currentDate.getDate() - 1); // Move to Friday
+      for (let i = 0; i < 5; i++) { // Friday back to Monday
+        const dayData = getDayData(
+          currentDate.getDate(),
+          currentDate.getFullYear(),
+          currentDate.getMonth()
+        );
+        
+        if (dayData?.profitLoss) {
+          total += dayData.profitLoss;
+        }
+        
+        currentDate.setDate(currentDate.getDate() - 1);
+      }
+    }
+
+    return total;
   };
 
   const getDayColor = (profitLoss: number | null): string => {
@@ -69,6 +140,33 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
     );
   };
 
+  const getWeekDateRange = (currentDay: number): string | null => {
+    if (!shouldShowWeeklyTotal(currentDay)) return null;
+    
+    let currentDate = new Date(year, month, currentDay);
+    const isSunday = currentDate.getDay() === 0;
+    
+    if (isSunday) {
+      // For Sundays, show next Monday-Friday
+      let startDate = new Date(currentDate);
+      startDate.setDate(startDate.getDate() + 1); // Monday
+      let endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 4); // Friday
+      if (endDate.getMonth() !== startDate.getMonth()) {
+        // Set endDate to the last day of startDate's month
+        endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+      }
+      return `${startDate.getMonth() + 1}/${startDate.getDate()} - ${endDate.getMonth() + 1}/${endDate.getDate()}`;
+    } else {
+      // For Saturdays, show previous Monday-Friday
+      let endDate = new Date(currentDate);
+      endDate.setDate(endDate.getDate() - 1); // Friday
+      let startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - 4); // Monday
+      return `${startDate.getMonth() + 1}/${startDate.getDate()} - ${endDate.getMonth() + 1}/${endDate.getDate()}`;
+    }
+  };
+
   return (
     <Card className="w-full bg-white dark:bg-gray-800">
       <CardContent className="p-2 sm:p-4">
@@ -90,15 +188,25 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
           <TooltipProvider>
             {Array.from({ length: daysInMonth }).map((_, index) => {
               const day = index + 1;
-              const dayData = getDayData(day);
+              const dayData = getDayData(day, year, month);
+              const weeklyTotal = getWeeklyTotal(day);
+              const showWeeklyTotal = shouldShowWeeklyTotal(day);
+              const weekDateRange = getWeekDateRange(day);
+
               return (
                 <TouchFriendlyTooltip
                   key={day}
                   content={
-                    dayData && (
+                    (dayData ||weeklyTotal) && (
                       <>
-                        <p>Date: {dayData.date}</p>
-                        <p>Profit/Loss: {formatNumber(dayData.profitLoss)}</p>
+                        <p>Date: {dayData?.date || `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`}</p>
+                      {dayData && <p>Daily P/L: {formatNumber(dayData.profitLoss)}</p>}
+                      {weeklyTotal && (
+                        <>
+                          <p>Week (Mon-Fri): {weekDateRange}</p>
+                          <p>Weekly Total: {formatNumber(weeklyTotal)}</p>
+                        </>
+                      )}
                       </>
                     )
                   }
@@ -111,6 +219,13 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
                       <div className="absolute bottom-0 right-0 left-0 text-[0.5rem] sm:text-xs leading-tight text-right p-0.5 bg-opacity-75 dark:bg-opacity-75 bg-inherit">
                         <div className={`font-bold truncate ${dayData.profitLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                           {formatNumber(dayData.profitLoss)}
+                        </div>
+                      </div>
+                    )}
+                    {showWeeklyTotal && weeklyTotal !== null && (
+                      <div className="absolute top-0 right-0 left-0 text-[0.5rem] sm:text-xs leading-tight text-right p-0.5 bg-gray-100 dark:bg-gray-700 bg-opacity-75 dark:bg-opacity-75">
+                        <div className={`font-bold truncate ${weeklyTotal >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {formatNumber(weeklyTotal)}
                         </div>
                       </div>
                     )}
