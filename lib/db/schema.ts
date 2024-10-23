@@ -23,6 +23,7 @@ import {
 
   export const trades = pgTable('trades', {
     id: serial('id').primaryKey(),
+    account: text('account'),
     transaction_type: text('transaction_type'),
     open_date: timestamp('open_date'),
     close_date: timestamp('close_date'),

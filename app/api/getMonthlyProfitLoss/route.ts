@@ -4,8 +4,12 @@ import { getMonthlyProfitLoss } from '../../../services/tradeQueries'
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const filters = {
+    account: searchParams.get('account'),
+    ticker: searchParams.get('ticker'),
     year: searchParams.get('year'),
-    ticker: searchParams.get('ticker')
+    month: searchParams.get('month'),
+    week: searchParams.get('week'),
+    day: searchParams.get('day')
   }
   
   try {

@@ -42,7 +42,24 @@ export function Sidebar({ className, onClose }: SidebarProps) {
     { value: '12', label: 'DEC' }
   ];
 
-  const fetchTickers = useCallback(async (account: string) => {
+  useEffect(() => {
+    fetch(`/api/getTickers?account=ALL`)
+        .then(response => response.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setTickers(['ALL', ...data]);
+          } else {
+            console.error('Unexpected data format:', data);
+            setTickers(['ALL']);
+          }
+        })
+        .catch(error => {
+          console.error('Failed to fetch tickers:', error);
+          setTickers(['ALL']);
+        });
+  },[]);
+
+  /*const fetchTickers = useCallback(async (account: string) => {
     if (isLoadingTickers) return;
     setIsLoadingTickers(true);
     try {
@@ -62,7 +79,7 @@ export function Sidebar({ className, onClose }: SidebarProps) {
     } finally {
       setIsLoadingTickers(false);
     }
-  }, [isLoadingTickers]);
+  }, [isLoadingTickers]);*/
 
   useEffect(() => {
     if (filters.year !== 'All Years' && filters.month !== 'ALL') {
@@ -105,9 +122,9 @@ export function Sidebar({ className, onClose }: SidebarProps) {
 
   const handleFilterChange = (filterType: string, value: string) => {
     setFilters(prevFilters => ({ ...prevFilters, [filterType]: value }));
-    if (filterType === 'account') {
+    /*if (filterType === 'account') {
       fetchTickers(value);
-    }
+    }*/
   };
 
   const renderSelect = (id: string, label: string, options: string[] | { value: string; label: string }[], value: string, onChange: (value: string) => void) => (

@@ -52,10 +52,10 @@ export async function getDistinctTickers(account: string | null) {
   where transaction_type='Trade'`;
   const queryParams: any[] = [];
 
-  /*if (account && account !== 'ALL') {
-    queryText += ' WHERE account = $1';
+  if (account && account !== 'ALL') {
+    queryText += ' AND account = $1';
     queryParams.push(account);
-  }*/
+  }
 
   queryText += ' ORDER BY underlying_symbol';
 
@@ -90,6 +90,11 @@ export async function getSummaryData(filters: {
   `;
   const queryParams: any[] = [];
 
+  if (filters.account && filters.account !== 'ALL') {
+    queryText += ' AND account = $' + (queryParams.length + 1);
+    queryParams.push(filters.account);
+  }
+
   if (filters.year && filters.year !== 'All Years') {
     queryText += ' AND close_year = $' + (queryParams.length + 1);
     queryParams.push(filters.year);
@@ -119,6 +124,10 @@ export async function getOpenPositions(filters: any) {
   and transaction_type = 'Trade'`;
   const queryParams: any[] = [];
 
+  if (filters.account && filters.account !== 'ALL') {
+    queryText += ' AND account = $' + (queryParams.length + 1);
+    queryParams.push(filters.account);
+  }
   // Add your filter logic here, similar to the getSummaryData function
   if (filters.year && filters.year !== 'All Years') {
     queryText += ' AND open_year = $' + (queryParams.length + 1);
@@ -163,6 +172,11 @@ export async function getClosedPositions(filters: any) {
   let queryText = `SELECT * FROM trades WHERE is_closed = true
   and transaction_type='Trade'`;
   const queryParams: any[] = [];
+
+  if (filters.account && filters.account !== 'ALL') {
+    queryText += ' AND account = $' + (queryParams.length + 1);
+    queryParams.push(filters.account);
+  }
 
   if (filters.year && filters.year !== 'All Years') {
     queryText += ' AND close_year = $' + (queryParams.length + 1);
@@ -217,6 +231,10 @@ export async function getStockPositions(filters: any) {
   `;
   const queryParams: any[] = [];
 
+  if (filters.account && filters.account !== 'ALL') {
+    queryText += ' AND account = $' + (queryParams.length + 1);
+    queryParams.push(filters.account);
+  }
   /* if (filters.year && filters.year !== 'All Years') {
     queryText += ' AND open_year = $' + (queryParams.length + 1);
     queryParams.push(filters.year);
@@ -265,6 +283,11 @@ export async function getDividendPositions(filters: any) {
   `;
   const queryParams: any[] = [];
 
+  if (filters.account && filters.account !== 'ALL') {
+    queryText += ' AND account = $' + (queryParams.length + 1);
+    queryParams.push(filters.account);
+  }
+
   if (filters.year && filters.year !== 'All Years') {
     queryText += ' AND close_year = $' + (queryParams.length + 1);
     queryParams.push(filters.year);
@@ -303,10 +326,7 @@ export async function getDividendPositions(filters: any) {
   }
 }
 
-export async function getMonthlyProfitLoss(filters: {
-  year?: string | null,
-  ticker?: string | null
-}) {
+export async function getMonthlyProfitLoss(filters: any) {
   let queryText = `
     SELECT 
       close_month, 
@@ -318,6 +338,11 @@ export async function getMonthlyProfitLoss(filters: {
     and transaction_type = 'Trade'
   `;
   const queryParams: any[] = [];
+
+  if (filters.account && filters.account !== 'ALL') {
+    queryText += ' AND account = $' + (queryParams.length + 1);
+    queryParams.push(filters.account);
+  }
 
   if (filters.year && filters.year !== 'All Years') {
     queryText += ' AND close_year = $' + (queryParams.length + 1);
@@ -354,6 +379,11 @@ export async function getClosedPositionsBySymbol(filters: any) {
     WHERE is_closed = true AND transaction_type = 'Trade'
   `;
   const queryParams: any[] = [];
+
+  if (filters.account && filters.account !== 'ALL') {
+    queryText += ' AND account = $' + (queryParams.length + 1);
+    queryParams.push(filters.account);
+  }
 
   if (filters.year && filters.year !== 'All Years') {
     queryText += ' AND close_year = $' + (queryParams.length + 1);
@@ -405,6 +435,11 @@ export async function getClosedPositionsByMonth(filters: any) {
   `;
   const queryParams: any[] = [];
 
+  if (filters.account && filters.account !== 'ALL') {
+    queryText += ' AND account = $' + (queryParams.length + 1);
+    queryParams.push(filters.account);
+  }
+
   if (filters.year && filters.year !== 'All Years') {
     queryText += ' AND close_year = $' + (queryParams.length + 1);
     queryParams.push(filters.year);
@@ -431,9 +466,12 @@ export async function getClosedPositionsByMonth(filters: any) {
 // Add this function to your existing tradeQueries.ts file
 
 export async function getDetailsData(filters: any) {
+  let paramIndex = 1;
+
   let queryText = `
     WITH closed_positions AS (
       SELECT 
+        account,
         underlying_symbol,
         close_year as year,
         SUM(profit_loss) as realized,
@@ -441,10 +479,12 @@ export async function getDetailsData(filters: any) {
         SUM(fees) as closed_fees
       FROM trades
       WHERE is_closed = true AND transaction_type = 'Trade'
-      GROUP BY underlying_symbol, close_year
+      ${filters.account !== 'ALL' ? `AND account = $${paramIndex}` : ''}
+      GROUP BY account,underlying_symbol, close_year
     ),
     open_positions AS (
       SELECT
+        account,
         underlying_symbol,
         open_year as year,
         SUM((quantity::numeric * open_price::numeric)) as unrealized,
@@ -452,9 +492,11 @@ export async function getDetailsData(filters: any) {
         SUM(fees) as open_fees
       FROM trades
       WHERE is_closed = false AND transaction_type = 'Trade'
-      GROUP BY underlying_symbol, open_year
+      ${filters.account !== 'ALL' ? `AND account = $${paramIndex}` : ''}
+      GROUP BY account,underlying_symbol, open_year
     )
     SELECT 
+      COALESCE(c.account, o.account) as account,
       COALESCE(c.underlying_symbol, o.underlying_symbol) as underlying_symbol,
       COALESCE(c.year, o.year) as year,
       COALESCE(c.realized, 0) as realized,
@@ -469,8 +511,10 @@ export async function getDetailsData(filters: any) {
     ON c.underlying_symbol = o.underlying_symbol AND c.year = o.year
   `;
 
-  const queryParams: any[] = [];
-  let paramIndex = 1;
+  const queryParams: any[] = [];  
+  if (filters.account && filters.account !== 'ALL') {
+    queryParams.push(filters.account);
+  }
 
   if (filters.year && filters.year !== 'All Years') {
     queryText += ` WHERE (c.year = $${paramIndex} OR o.year = $${paramIndex})`;
@@ -484,6 +528,12 @@ export async function getDetailsData(filters: any) {
     queryText += ` (c.underlying_symbol = $${paramIndex} OR o.underlying_symbol = $${paramIndex})`;
     queryParams.push(filters.ticker);
   }
+  
+  /*if (filters.account && filters.account !== 'ALL') {
+    queryText += paramIndex === 1 ? ' WHERE' : ' AND';
+    queryText += ` (c.account = $${paramIndex} or o.account = $${paramIndex})`;
+    queryParams.push(filters.account);
+  }*/
 
   queryText += ' ORDER BY underlying_symbol, year DESC';
 
@@ -517,12 +567,11 @@ export async function getCalendarData(filters: {
     AND transaction_type = 'Trade'
   `;
   const queryParams: any[] = [];
-  /*
+  
   if (filters.account && filters.account !== 'ALL') {
     queryText += ` AND account = $${queryParams.length + 1}`;
     queryParams.push(filters.account);
   }
-  */
 
   if (filters.ticker && filters.ticker !== 'ALL') {
     queryText += ` AND underlying_symbol = $${queryParams.length + 1}`;
@@ -585,6 +634,11 @@ export async function getMoneySummary(filters: {
           AND symbol = underlying_symbol
   `;
   const queryParams: any[] = [];
+
+  if (filters.account && filters.account !== 'ALL') {
+    queryText += ' AND account = $' + (queryParams.length + 1);
+    queryParams.push(filters.account);
+  }
 
   if (filters.year && filters.year !== 'All Years') {
     queryText += ' AND close_year = $' + (queryParams.length + 1);
