@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { db } from './drizzle';
-import { trades, users } from './schema';
+import { trades, users,brokers } from './schema';
 import { and, eq, isNull } from 'drizzle-orm/expressions';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
@@ -36,4 +36,18 @@ export async function getUser() {
     }
   
     return user[0];
+  }
+
+  export async function getUserAccounts(email:string) {
+
+    const userAccounts = await db
+      .select()
+      .from(brokers)
+      .where(eq(brokers.email,email));
+  
+    if (userAccounts.length === 0) {
+      return null;
+    }
+  
+    return userAccounts;
   }

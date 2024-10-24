@@ -1,0 +1,1 @@
+ALTER TABLE "brokers" ADD CONSTRAINT "broker_unique_constraint" UNIQUE("email","broker_name","account_number");

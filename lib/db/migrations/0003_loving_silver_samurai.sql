@@ -1,0 +1,1 @@
+ALTER TABLE "brokers" DROP CONSTRAINT "brokers_email_unique";

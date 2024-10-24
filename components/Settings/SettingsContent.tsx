@@ -5,6 +5,7 @@ import ErrorBoundary from '../Common/ErrorBoundary';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import Security from './Security';
 import General from './General';
+import Accounts from './Accounts';
 
 
 interface SettingsContentProps {
@@ -22,6 +23,9 @@ interface SettingsContentProps {
         <Suspense fallback={<LoadingSpinner />}>
             <div className="mt-6">
                 <General/>
+            </div>
+            <div className="mt-6">
+                <Accounts onContentLoaded={onContentLoaded}/>
             </div>
             <div className="mt-6">
                 <Security/>

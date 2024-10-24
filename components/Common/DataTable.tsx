@@ -232,7 +232,7 @@ export function DataTable<TData, TValue>({
                 showNoResultsMessage && (
                   <TableRow>
                     <TableCell colSpan={columns.length} className="h-24 text-center text-foreground">
-                      No data available for the selected filters.
+                      No data available.
                     </TableCell>
                   </TableRow>
                 )

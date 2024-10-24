@@ -161,12 +161,12 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
         {lifeSummaryData.life_profit_loss && (
           <>
               <TouchFriendlyTooltip
-                key={`${lifeSummaryData.life_profit_loss}`}
+                key="LTPL"
                 content={
-                  <p>Lifetime profit/loss {lifeSummaryData.life_profit_loss.toFixed(2)}</p>
+                  <p key="LTPL_1">Lifetime profit/loss {lifeSummaryData.life_profit_loss.toFixed(2)}</p>
                 }
               >
-                <DataCard 
+                <DataCard
                   title={`Lifetime P/L`}
                   value={`${lifeSummaryData.life_profit_loss?.toFixed(2)}`}
                   amount={lifeSummaryData.life_profit_loss}
@@ -175,12 +175,12 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
                 />
               </TouchFriendlyTooltip>
               <TouchFriendlyTooltip
-                key={`${lifeSummaryData.life_cash}`}
+                key="LTC"
                 content={
-                  <p>Lifetime cash {lifeSummaryData.life_cash}</p>
+                  <p key="LTC_1">Lifetime cash {lifeSummaryData.life_cash}</p>
                 }
               >
-                <DataCard 
+                <DataCard
                   title={`Lifetime Cash`}
                   value={`${lifeSummaryData.life_cash}`}
                   amount={lifeSummaryData.life_cash}
@@ -189,12 +189,12 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
                 />
             </TouchFriendlyTooltip>
             <TouchFriendlyTooltip
-              key={`${lifeSummaryData.life_interest}`}
+              key="LTI"
               content={
-                <p>Lifetime interest {lifeSummaryData.life_interest?.toFixed(2)}</p>
+                <p key="LTI_1">Lifetime interest {lifeSummaryData.life_interest?.toFixed(2)}</p>
               }
             >
-              <DataCard 
+              <DataCard
                 title={`Lifetime Interest`}
                 value={`${lifeSummaryData.life_interest?.toFixed(2)}`}
                 amount={lifeSummaryData.life_interest}
@@ -204,22 +204,22 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
             </TouchFriendlyTooltip>
           </>
         )}
-        {summaryData.map((yearData) => {
+        {summaryData.map((yearData, index) => {
           const netProfitLoss = parseFloat(yearData.total_profit_loss) + 
                                 parseFloat(yearData.total_commissions) + 
                                 parseFloat(yearData.total_fees);
           return (
             <>
             <TouchFriendlyTooltip
-              key={yearData.close_year}
+              key={`SUM_${yearData.close_year}`}
               content={
                 <>
-                  <p>Profit/Loss before commissions and fees for {yearData.close_year}</p>
-                  <p>Profit/Loss: {formatCurrency(parseFloat(yearData.total_profit_loss))}</p>
+                  <p key={`SUM_PM_${yearData.close_year}`}>Profit/Loss before commissions and fees for {yearData.close_year}</p>
+                  <p key={`SUM_PN_${yearData.close_year}`}>Profit/Loss: {formatCurrency(parseFloat(yearData.total_profit_loss))}</p>
                 </>
               }
             >
-              <DataCard 
+              <DataCard key={`${yearData.close_year}`}
                 title={`${yearData.close_year}`}
                 value={formatCurrency(parseFloat(yearData.total_profit_loss))}
                 amount={parseFloat(yearData.total_profit_loss)}
@@ -228,17 +228,17 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
               />
             </TouchFriendlyTooltip>
             <TouchFriendlyTooltip
-            key={`${yearData.close_year}-NET`}
+            key={`SUMNET-${yearData.close_year}`}
             content={
               <>
-                <p>Net after commissions and fees for {yearData.close_year}</p>
-                <p>Profit/Loss: {formatCurrency(parseFloat(yearData.total_profit_loss))}</p>
-                <p>Commissions: {formatCurrency(parseFloat(yearData.total_commissions))}</p>
-                <p>Fees: {formatCurrency(parseFloat(yearData.total_fees))}</p>
+                <p key={`SUMNET_PM_${yearData.close_year}`}>Net after commissions and fees for {yearData.close_year}</p>
+                <p key={`SUMNET_PL_${yearData.close_year}`}>Profit/Loss: {formatCurrency(parseFloat(yearData.total_profit_loss))}</p>
+                <p key={`SUMNET_COMM_${yearData.close_year}`}>Commissions: {formatCurrency(parseFloat(yearData.total_commissions))}</p>
+                <p key={`SUMNET_FEE_${yearData.close_year}`}>Fees: {formatCurrency(parseFloat(yearData.total_fees))}</p>
               </>
             }
           >
-            <DataCard 
+            <DataCard
               title={`${yearData.close_year} - NET`}
               value={formatCurrency(netProfitLoss)}
               amount={netProfitLoss}
@@ -249,11 +249,11 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
           </>
           );
         })}
-        {appliedFilters.year !== 'All Years' && moneySummaryData.map((moneyData) => (
+        {appliedFilters.year !== 'All Years' && moneySummaryData.map((moneyData,index) => (
           <TouchFriendlyTooltip
-            key={`${moneyData.close_year}-${moneyData.symbol}`}
+            key={`MS_${moneyData.close_year}`}
             content={
-              <p>Total amount for {moneyData.symbol} in {moneyData.close_year}</p>
+              <p key={`MS_PM_${moneyData.close_year}`}>Total amount for {moneyData.symbol} in {moneyData.close_year}</p>
             }
           >
             <DataCard 

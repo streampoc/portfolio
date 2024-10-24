@@ -6,7 +6,8 @@ import {
     timestamp,
     integer,
     decimal,
-    boolean
+    boolean,
+    unique
   } from 'drizzle-orm/pg-core';
   import { relations } from 'drizzle-orm';
   
@@ -20,6 +21,22 @@ import {
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
     deletedAt: timestamp('deleted_at'),
   });
+
+  export const brokers = pgTable('brokers', {
+    id: serial('id').primaryKey(),
+    email: varchar('email', { length: 255 }).notNull(),
+    broker_name: varchar('broker_name', { length: 100 }).notNull(),
+    account_number: varchar('account_number', { length: 50 }).notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at'),
+  }, (table) => ({
+    uniqueConstraint: unique('broker_unique_constraint').on(
+      table.email, 
+      table.broker_name, 
+      table.account_number
+    )
+  }));
 
   export const trades = pgTable('trades', {
     id: serial('id').primaryKey(),
