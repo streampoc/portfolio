@@ -59,7 +59,7 @@ export function Sidebar({ className, onClose }: SidebarProps) {
         .then(response => response.json())
         .then(data => {
           if (Array.isArray(data)) {
-            setAccounts(['ALL', ...data.map((account: AccountRow) => account.broker_name)]);
+            setAccounts(['ALL', ...data.map((account: AccountRow) => `${account.broker_name}-${account.account_number}`)]);
           } else {
             console.error('Unexpected data format:', data);
             setAccounts(['ALL']);

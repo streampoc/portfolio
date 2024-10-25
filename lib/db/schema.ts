@@ -66,6 +66,7 @@ import {
 
   export type User = typeof users.$inferSelect;
   export type NewUser = typeof users.$inferInsert;
+  export type Broker = typeof brokers.$inferSelect;
 
   export enum ActivityType {
     SIGN_UP = 'SIGN_UP',

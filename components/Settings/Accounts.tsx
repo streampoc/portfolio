@@ -3,11 +3,12 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { startTransition, useActionState } from 'react';
+import { startTransition, useTransition } from 'react';
 import { useFormState } from 'react-dom';
 import { Lock, Trash2, Loader2 } from 'lucide-react';
-import { addBrokerAccount } from './actions';
+import { addBrokerAccount,deleteBrokerAccount } from './actions';
 
+import { useToast } from "@/hooks/use-toast"
 
 import React, { useEffect, useState } from 'react';
 import { DataTable } from '../Common/DataTable';
@@ -42,35 +43,71 @@ const Accounts: React.FC<AccountProps> = ({ onContentLoaded }) => {
     ActionState,
     FormData
   >(addBrokerAccount, { error: '', success: '' });
+  //const [isPending, startTransition] = useTransition();
+  const [pendingDeletions, setPendingDeletions] = useState<Set<number>>(new Set());
+
+
+
+  const { toast } = useToast()
+
+  const fetchAccountsData = async () => {
+    setIsLoading(true);
+    try {
+
+      const response = await fetch('/api/getAccountsData?email=' + user?.email);
+      if (!response.ok) {
+        throw new Error('Failed to fetch account data');
+      }
+      const data = await response.json();        
+
+      setAccountData(data);
+    } catch (error) {
+      console.error('Error fetching accounts data:', error);
+    } finally {
+      setIsLoading(false);
+      onContentLoaded();
+    }
+  };
 
   useEffect(() => {
-    const fetchAccountsData = async () => {
-      setIsLoading(true);
-      try {
-
-        const response = await fetch('/api/getAccountsData?email=' + user?.email);
-        if (!response.ok) {
-          throw new Error('Failed to fetch account data');
-        }
-        const data = await response.json();        
-
-        setAccountData(data);
-      } catch (error) {
-        console.error('Error fetching accounts data:', error);
-      } finally {
-        setIsLoading(false);
-        onContentLoaded();
-      }
-    };
-
     fetchAccountsData();
   }, [user]);
 
+  const handleDelete = async (account: AccountRow) => {
+    setPendingDeletions(prev => new Set(prev).add(account.id));
+
+      try {
+        const result = await deleteBrokerAccount({
+          broker_name: account.broker_name,
+          account_number: account.account_number
+        });
+
+        if (result?.error) {
+          toast({
+            title: "Error",
+            description: result.error,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: "Account deleted successfully",
+          });
+          //remove from pending deletions.
+          setPendingDeletions(new Set());
+          // Refresh the accounts list
+          fetchAccountsData();
+        }
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to delete account",
+          variant: "destructive",
+        });
+      }
+    };
+
   const columns: ColumnDef<AccountRow>[] = [
-    {
-        accessorKey: "email",
-        header: "User",
-      },
     {
       accessorKey: "broker_name",
       header: "Broker",
@@ -79,7 +116,29 @@ const Accounts: React.FC<AccountProps> = ({ onContentLoaded }) => {
       accessorKey: "account_number",
       header: "Account Number",
     },
+    {
+      id: "actions",
+      header:"Actions",
+      cell: ({ row }) => {
+        const account = row.original;
+        return (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => handleDelete(account)}
+            disabled={pendingDeletions.has(account.id)}
+          >
+            {pendingDeletions.has(account.id) ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+          </Button>
+        );
+      },
+    }
   ];
+
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -100,6 +159,7 @@ const Accounts: React.FC<AccountProps> = ({ onContentLoaded }) => {
         submitAction(new FormData(event.currentTarget));
     });
   };
+
 
   return (
     <>

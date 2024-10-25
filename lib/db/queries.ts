@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { db } from './drizzle';
 import { trades, users,brokers,User } from './schema';
-import { and, eq, isNull } from 'drizzle-orm/expressions';
+import { and, eq, isNull,isNotNull } from 'drizzle-orm/expressions';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
 
@@ -43,7 +43,7 @@ export async function getUser() {
     const userAccounts = await db
       .select()
       .from(brokers)
-      .where(eq(brokers.email,user.email));
+      .where(and(eq(brokers.email,user.email),isNull(brokers.deletedAt)));
   
     if (userAccounts.length === 0) {
       return null;
