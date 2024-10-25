@@ -1,13 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getDetailsData } from '../../../services/tradeQueries';
 
+import { getUser } from '@/lib/db/queries';
+import { User } from '@/lib/db/schema';
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const filters = Object.fromEntries(searchParams.entries());
 
+  const user = await getUser();
+
+  if(!user){
+    return NextResponse.json({ error: 'Unable to retrieve user from session' }, { status: 500 })
+  }
+
   try {
     console.log('Fetching details data');
-    const data = await getDetailsData(filters);
+    const data = await getDetailsData(filters,user);
     console.log('Fetching done');
     //console.log(`Details data fetched: ${JSON.stringify(data)}`);
     return NextResponse.json(data);

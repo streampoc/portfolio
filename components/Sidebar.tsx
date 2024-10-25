@@ -17,6 +17,13 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onClose?: () => void;
 }
 
+interface AccountRow {
+  email: string;
+  id:number;
+  broker_name: string;
+  account_number: number;
+}
+
 export function Sidebar({ className, onClose }: SidebarProps) {
   const { filters, setFilters, applyFilters } = useFilters();
   const [weeks, setWeeks] = useState<string[]>([]);
@@ -24,7 +31,11 @@ export function Sidebar({ className, onClose }: SidebarProps) {
   const [tickers, setTickers] = useState<string[]>(['ALL']);
   const [isLoadingTickers, setIsLoadingTickers] = useState<boolean>(false);
 
-  const accounts = ['ALL', 'TW', 'TD', 'RH'];
+  const [accounts, setAccounts] = useState<string[]>(['ALL']);
+
+
+  //const accounts = ['ALL', 'TW', 'TD', 'RH'];
+
   const years = ['All Years', ...Array.from({ length: 20 }, (_, i) => (2015 + i).toString())];
   const months = [
     { value: 'ALL', label: 'ALL' },
@@ -41,6 +52,24 @@ export function Sidebar({ className, onClose }: SidebarProps) {
     { value: '11', label: 'NOV' },
     { value: '12', label: 'DEC' }
   ];
+
+  useEffect(() => {
+
+    fetch(`/api/getAccountsData`)
+        .then(response => response.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setAccounts(['ALL', ...data.map((account: AccountRow) => account.broker_name)]);
+          } else {
+            console.error('Unexpected data format:', data);
+            setAccounts(['ALL']);
+          }
+        })
+        .catch(error => {
+          console.error('Failed to fetch tickers:', error);
+          setAccounts(['ALL']);
+        });
+  },[]);
 
   useEffect(() => {
     fetch(`/api/getTickers?account=ALL`)
@@ -90,16 +119,16 @@ export function Sidebar({ className, onClose }: SidebarProps) {
             setWeeks(data);
           } else {
             console.error('Unexpected data format:', data);
-            setWeeks([]);
+            setWeeks(['ALL']);
           }
           setFilters(prev => ({ ...prev, week: 'ALL', day: 'All Days' }));
         })
         .catch(error => {
           console.error('Failed to fetch weeks:', error);
-          setWeeks([]);
+          setWeeks(['ALL']);
         });
     } else {
-      setWeeks([]);
+      setWeeks(['ALL']);
       setFilters(prev => ({ ...prev, week: 'ALL', day: 'All Days' }));
     }
   }, [filters.year, filters.month, setFilters]);
@@ -164,7 +193,7 @@ export function Sidebar({ className, onClose }: SidebarProps) {
     
     setFilters(resetFilters);
     setTickers(['ALL']);
-    setWeeks([]);
+    setWeeks(['ALL']);
     setDays(['All Days']);
     
     // Immediately apply the reset filters
@@ -182,7 +211,7 @@ export function Sidebar({ className, onClose }: SidebarProps) {
             {renderSelect('ticker', 'Ticker', tickers, filters.ticker, (value) => handleFilterChange('ticker', value))}
             {renderSelect('year', 'Year', years, filters.year, (value) => handleFilterChange('year', value))}
             {renderSelect('month', 'Month', months, filters.month, (value) => handleFilterChange('month', value))}
-            {renderSelect('week', 'Week', ['ALL', ...weeks], filters.week, (value) => handleFilterChange('week', value))}
+            {renderSelect('week', 'Week', weeks, filters.week, (value) => handleFilterChange('week', value))}
             {renderSelect('day', 'Day', days, filters.day, (value) => handleFilterChange('day', value))}
           </div>
         </div>

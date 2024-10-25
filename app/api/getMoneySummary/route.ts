@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMoneySummary } from '@/services/tradeQueries';
 
+import { User } from '@/lib/db/schema'
+import { getUser } from '@/lib/db/queries'
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const filters = {
@@ -12,8 +15,14 @@ export async function GET(request: NextRequest) {
     day: searchParams.get('day')
   };
 
+  const user = await getUser();
+
+  if(!user){
+    return NextResponse.json({ error: 'Unable to retrieve user from session' }, { status: 500 })
+  }
+
   try {
-    const moneySummaryData = await getMoneySummary(filters);
+    const moneySummaryData = await getMoneySummary(filters,user);
     return NextResponse.json(moneySummaryData);
   } catch (error) {
     console.error('Error fetching money summary data:', error);

@@ -166,9 +166,14 @@ const Dividends: React.FC<DividendPositionsProps> = ({ onContentLoaded }) => {
   }
 
   const NoDataMessage = () => (
-    <div className="text-center p-4">
-      No data available for the selected filters.
-    </div>
+    <Card>
+        <CardHeader>
+          <CardTitle>Dividends by Symbol</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>No data available.</p>
+        </CardContent>
+      </Card>
   );
 
   return (
@@ -207,7 +212,7 @@ const Dividends: React.FC<DividendPositionsProps> = ({ onContentLoaded }) => {
                 labelFormatter={(label) => `Month: ${label}`}
               />
             ) : (
-              <NoDataMessage />
+              <p>No data available.</p>
             )}
           </CardContent>
         </Card>

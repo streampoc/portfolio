@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCalendarData } from '@/services/tradeQueries';
 
+import { getUser } from '@/lib/db/queries';
+import { User } from '@/lib/db/schema';
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const filters = {
@@ -12,8 +15,14 @@ export async function GET(request: NextRequest) {
     day: searchParams.get('day')
   };
 
+  const user = await getUser();
+
+  if(!user){
+    return NextResponse.json({ error: 'Unable to retrieve user from session' }, { status: 500 })
+  }
+
   try {
-    const calendarData = await getCalendarData(filters);
+    const calendarData = await getCalendarData(filters,user);
     return NextResponse.json(calendarData);
   } catch (error) {
     console.error('Error fetching calendar data:', error);

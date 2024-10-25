@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSummaryData } from '../../../services/tradeQueries'
+import { User } from '@/lib/db/schema'
+import { getUser } from '@/lib/db/queries'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -10,9 +12,15 @@ export async function GET(request: Request) {
   const account = searchParams.get('account')
   const ticker = searchParams.get('ticker')
 
+  const user = await getUser();
+
+  if(!user){
+    return NextResponse.json({ error: 'Unable to retrieve user from session' }, { status: 500 })
+  }
+
   try {
     console.log(`Fetching summary data for filters:`, { year, month, week, day, account, ticker });
-    const summaryData = await getSummaryData({ year, month, week, day, account, ticker })
+    const summaryData = await getSummaryData({ year, month, week, day, account, ticker },user)
     //console.log(`Summary data fetched:`, summaryData);
     return NextResponse.json(summaryData)
   } catch (error: unknown) {

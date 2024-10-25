@@ -95,7 +95,7 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
           <CardTitle>Monthly Calendar</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>No data available for the selected filters.</p>
+          <p>No data available.</p>
         </CardContent>
       </Card>
     );

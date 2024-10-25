@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useFilters } from '../../contexts/FilterContext';
 import DataCard from '../Common/DataCard';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import LoadingSpinner from '../Common/LoadingSpinner';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
@@ -152,7 +153,16 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
   }
 
   if (summaryData.length === 0 && moneySummaryData.length === 0) {
-    return <div>No summary data available.</div>;
+    return (
+      <Card>
+      <CardHeader>
+        <CardTitle>Summary</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>No Summary data available.</p>
+      </CardContent>
+      </Card>
+    );
   }
 
   return (

@@ -106,7 +106,7 @@ const MonthlyProfitLossChart: React.FC<MonthlyProfitLossChartProps> = ({ onConte
           <CardTitle>Monthly Net For - {appliedFilters.year === 'All Years' ? new Date().getFullYear().toString() : appliedFilters.year}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>No data available for the selected filters.</p>
+          <p>No data available.</p>
         </CardContent>
       </Card>
     );

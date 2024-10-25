@@ -150,6 +150,8 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ onContentLoaded }) => {
     },
   };
 
+
+
   return (
     <div className="space-y-6 ">
       <ErrorBoundary>
@@ -190,9 +192,14 @@ const OpenPositions: React.FC<OpenPositionsProps> = ({ onContentLoaded }) => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="text-center p-4 mb-6">
-                No data available for the selected filters.
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Open Positions by Symbol</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>No data available.</p>
+                </CardContent>
+                </Card>
             )}
             <Card>
               <CardContent>

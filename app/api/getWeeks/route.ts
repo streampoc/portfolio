@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getWeeksByYearAndMonth } from '../../../services/tradeQueries'
 
+import { getUser } from '@/lib/db/queries';
+import { User } from '@/lib/db/schema';
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const year = searchParams.get('year')
@@ -10,9 +13,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Invalid year or month' }, { status: 400 })
   }
 
+  const user = await getUser();
+
+  if(!user){
+    return NextResponse.json({ error: 'Unable to retrieve user from session' }, { status: 500 })
+  }
+
   try {
     console.log(`Fetching weeks for year: ${year}, month: ${month}`);
-    const weeks = await getWeeksByYearAndMonth(year, month)
+    const weeks = await getWeeksByYearAndMonth(year, month,user)
     //console.log(`Weeks fetched: ${JSON.stringify(weeks)}`);
     return NextResponse.json(weeks)
   } catch (error: unknown) {

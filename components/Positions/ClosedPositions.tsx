@@ -234,7 +234,7 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded,conte
         </CardTitle>
                 </CardHeader>
         <CardContent>
-          <p>No data available for the selected filters.</p>
+          <p>No data available.</p>
         </CardContent>
       </Card>
     );

@@ -36,6 +36,27 @@
       "when": 1729782986188,
       "tag": "0004_fine_radioactive_man",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1729855009216,
+      "tag": "0005_modern_ultragirl",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1729855065538,
+      "tag": "0006_flawless_carmella_unuscione",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1729855170008,
+      "tag": "0007_lonely_kinsey_walden",
+      "breakpoints": true
     }
   ]
 }

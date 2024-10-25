@@ -1,9 +1,11 @@
 import { sql } from "@vercel/postgres";
+import { getUser } from '@/lib/db/queries';
+import { User } from "@/lib/db/schema";
 
-export async function getTradesByFilters(filters: any) {
+export async function getTradesByFilters(filters: any,user:User) {
   const { account, ticker, year, month, week, day } = filters;
   
-  let queryText = 'SELECT * FROM trades WHERE 1=1';
+  let queryText = `SELECT * FROM trades WHERE user_id = ${user?.id}`;
   const queryParams: any[] = [];
 
   if (account && account !== 'ALL') {
@@ -30,8 +32,9 @@ export async function getTradesByFilters(filters: any) {
 }
 
 // This function should only be called from the server (e.g., in API routes)
-export async function getWeeksByYearAndMonth(year: string, month: string) {
-  const queryText = 'SELECT DISTINCT close_week FROM trades WHERE close_year = $1 AND close_month = $2 ORDER BY close_week';
+export async function getWeeksByYearAndMonth(year: string, month: string,user:User) {
+  const queryText = `SELECT DISTINCT close_week FROM trades WHERE 
+  close_year = $1 AND close_month = $2 AND user_id = ${user?.id} ORDER BY close_week`;
   const queryParams = [year, month];
 
   try {
@@ -47,9 +50,10 @@ export async function getWeeksByYearAndMonth(year: string, month: string) {
 }
 
 // Add this function to the existing file
-export async function getDistinctTickers(account: string | null) {
+export async function getDistinctTickers(account: string | null,user: User) {
+    
   let queryText = `SELECT DISTINCT underlying_symbol FROM trades 
-  where transaction_type='Trade'`;
+  where transaction_type='Trade' and user_id = ${user?.id}`;
   const queryParams: any[] = [];
 
   if (account && account !== 'ALL') {
@@ -78,7 +82,7 @@ export async function getSummaryData(filters: {
   day?: string | null,
   account?: string | null,
   ticker?: string | null
-}) {
+},user:User) {
   let queryText = `
     SELECT 
       close_year,
@@ -87,6 +91,7 @@ export async function getSummaryData(filters: {
       SUM(fees) as total_fees 
     FROM trades 
     WHERE is_closed = true and transaction_type = 'Trade'
+    and user_id = ${user?.id}
   `;
   const queryParams: any[] = [];
 
@@ -118,10 +123,11 @@ export async function getSummaryData(filters: {
 }
 
 // Add this function to your existing tradeQueries.ts file
-export async function getOpenPositions(filters: any) {
+export async function getOpenPositions(filters: any,user:User) {
   let queryText = `SELECT * FROM trades WHERE is_closed = false 
   and symbol != underlying_symbol
-  and transaction_type = 'Trade'`;
+  and transaction_type = 'Trade'
+  AND user_id = ${user?.id}`;
   const queryParams: any[] = [];
 
   if (filters.account && filters.account !== 'ALL') {
@@ -168,9 +174,9 @@ export async function getOpenPositions(filters: any) {
 }
 
 // Add this function to your existing tradeQueries.ts file
-export async function getClosedPositions(filters: any) {
+export async function getClosedPositions(filters: any,user:User) {
   let queryText = `SELECT * FROM trades WHERE is_closed = true
-  and transaction_type='Trade'`;
+  and transaction_type='Trade' AND user_id = ${user?.id}`;
   const queryParams: any[] = [];
 
   if (filters.account && filters.account !== 'ALL') {
@@ -217,7 +223,7 @@ export async function getClosedPositions(filters: any) {
 }
 
 // Add this function to your existing tradeQueries.ts file
-export async function getStockPositions(filters: any) {
+export async function getStockPositions(filters: any,user:User) {
   let queryText = `
     SELECT symbol,sum(quantity) as quantity,
             round(avg(open_price),2) as open_price,
@@ -228,6 +234,7 @@ export async function getStockPositions(filters: any) {
             max(open_month) as open_month
       FROM trades 
     WHERE symbol = underlying_symbol AND is_closed = false
+    AND user_id = ${user?.id}
   `;
   const queryParams: any[] = [];
 
@@ -274,12 +281,13 @@ export async function getStockPositions(filters: any) {
 }
 
 // Add this function to your existing tradeQueries.ts file
-export async function getDividendPositions(filters: any) {
+export async function getDividendPositions(filters: any,user:User) {
   let queryText = `
     SELECT *
     FROM trades 
     WHERE transaction_type = 'Money'
     AND symbol = 'DIVIDEND'
+    AND user_id = ${user?.id}
   `;
   const queryParams: any[] = [];
 
@@ -326,7 +334,7 @@ export async function getDividendPositions(filters: any) {
   }
 }
 
-export async function getMonthlyProfitLoss(filters: any) {
+export async function getMonthlyProfitLoss(filters: any,user:User) {
   let queryText = `
     SELECT 
       close_month, 
@@ -336,6 +344,7 @@ export async function getMonthlyProfitLoss(filters: any) {
     FROM trades 
     WHERE is_closed = true
     and transaction_type = 'Trade'
+    and user_id = ${user?.id}
   `;
   const queryParams: any[] = [];
 
@@ -368,7 +377,7 @@ export async function getMonthlyProfitLoss(filters: any) {
 }
 
 // Add this function to your existing tradeQueries.ts file
-export async function getClosedPositionsBySymbol(filters: any) {
+export async function getClosedPositionsBySymbol(filters: any,user:User) {
   let queryText = `
     SELECT 
       underlying_symbol,
@@ -377,6 +386,7 @@ export async function getClosedPositionsBySymbol(filters: any) {
       SUM(fees) as total_fees
     FROM trades 
     WHERE is_closed = true AND transaction_type = 'Trade'
+    and user_id = ${user?.id}
   `;
   const queryParams: any[] = [];
 
@@ -423,7 +433,7 @@ export async function getClosedPositionsBySymbol(filters: any) {
   }
 }
 
-export async function getClosedPositionsByMonth(filters: any) {
+export async function getClosedPositionsByMonth(filters: any,user:User) {
   let queryText = `
     SELECT 
       close_month,
@@ -432,6 +442,7 @@ export async function getClosedPositionsByMonth(filters: any) {
       SUM(fees) as total_fees
     FROM trades 
     WHERE is_closed = true AND transaction_type = 'Trade'
+    and user_id = ${user?.id}
   `;
   const queryParams: any[] = [];
 
@@ -465,7 +476,7 @@ export async function getClosedPositionsByMonth(filters: any) {
 
 // Add this function to your existing tradeQueries.ts file
 
-export async function getDetailsData(filters: any) {
+export async function getDetailsData(filters: any,user:User) {
   let paramIndex = 1;
 
   let queryText = `
@@ -478,7 +489,7 @@ export async function getDetailsData(filters: any) {
         SUM(commissions) as closed_commissions,
         SUM(fees) as closed_fees
       FROM trades
-      WHERE is_closed = true AND transaction_type = 'Trade'
+      WHERE is_closed = true AND transaction_type = 'Trade' AND user_id = ${user?.id}
       ${filters.account !== 'ALL' ? `AND account = $${paramIndex}` : ''}
       GROUP BY account,underlying_symbol, close_year
     ),
@@ -491,7 +502,7 @@ export async function getDetailsData(filters: any) {
         SUM(commissions) as open_commissions,
         SUM(fees) as open_fees
       FROM trades
-      WHERE is_closed = false AND transaction_type = 'Trade'
+      WHERE is_closed = false AND transaction_type = 'Trade' AND user_id = ${user?.id}
       ${filters.account !== 'ALL' ? `AND account = $${paramIndex}` : ''}
       GROUP BY account,underlying_symbol, open_year
     )
@@ -555,7 +566,7 @@ export async function getCalendarData(filters: {
   month?: string | null,
   week?: string | null,
   day?: string | null
-}) {
+},user:User) {
   let queryText = `
     SELECT 
       DATE(close_date) as date,
@@ -565,6 +576,7 @@ export async function getCalendarData(filters: {
     FROM trades 
     WHERE is_closed = true
     AND transaction_type = 'Trade'
+    AND user_id = ${user?.id}
   `;
   const queryParams: any[] = [];
   
@@ -620,7 +632,7 @@ export async function getMoneySummary(filters: {
   day?: string | null,
   account?: string | null,
   ticker?: string | null
-}) {
+},user:User) {
   let queryText = `
     select symbol, close_year , sum(profit_loss)  as total_amount from (SELECT 
           profit_loss,close_year,
@@ -632,6 +644,7 @@ export async function getMoneySummary(filters: {
           FROM trades 
           WHERE is_closed = true AND transaction_type = 'Money'
           AND symbol = underlying_symbol
+          AND user_id = ${user?.id}
   `;
   const queryParams: any[] = [];
 

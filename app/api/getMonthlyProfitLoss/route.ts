@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getMonthlyProfitLoss } from '../../../services/tradeQueries'
 
+import { getUser } from '@/lib/db/queries';
+import { User } from '@/lib/db/schema';
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const filters = {
@@ -11,10 +14,14 @@ export async function GET(request: Request) {
     week: searchParams.get('week'),
     day: searchParams.get('day')
   }
-  
+  const user = await getUser();
+
+  if(!user){
+    return NextResponse.json({ error: 'Unable to retrieve user from session' }, { status: 500 })
+  }
   try {
     console.log('Fetching monthly profit/loss data');
-    const data = await getMonthlyProfitLoss(filters)
+    const data = await getMonthlyProfitLoss(filters,user)
     //console.log(`Monthly profit/loss data fetched: ${JSON.stringify(data)}`);
     return NextResponse.json(data)
   } catch (error: unknown) {
