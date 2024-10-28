@@ -525,6 +525,7 @@ export async function getDetailsData(filters: any,user:User) {
   const queryParams: any[] = [];  
   if (filters.account && filters.account !== 'ALL') {
     queryParams.push(filters.account);
+    paramIndex++;
   }
 
   if (filters.year && filters.year !== 'All Years') {
