@@ -129,7 +129,7 @@ const MonthlyProfitLossChart: React.FC<MonthlyProfitLossChartProps> = ({ onConte
         <BarChart
           data={data}
           xDataKey="close_month"
-          yDataKey="net_profit"
+          yDataKey="total_profit_loss" //to show net, change this to net_profit
           layout={isLargeScreen ? "horizontal" : "vertical"}
           isLargeScreen={isLargeScreen}
           formatXAxis={getMonthAbbreviation}

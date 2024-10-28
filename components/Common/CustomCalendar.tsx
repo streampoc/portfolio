@@ -6,6 +6,7 @@ interface DayData {
   date: string;
   profitLoss: number | null;
   commissions: number | null;
+  net: number | null;
 }
 
 interface CustomCalendarProps {
@@ -203,6 +204,7 @@ const CustomCalendar: React.FC<CustomCalendarProps> = ({ year, month, data }) =>
                         <>
                           <p>Date: {dayData?.date || `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`}</p>
                           <p>Daily P/L: {formatNumber(dayData.profitLoss)}</p>
+                          <p>Net P/L: {formatNumber(dayData.net)}</p>
                         </>
                         )
                       }

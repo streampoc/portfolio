@@ -4,7 +4,7 @@ import { useState,useEffect } from 'react';
 import { FilterProvider } from '@/contexts/FilterContext'
 import { ThemeToggle } from "@/components/Common/ThemeToggle"
 import { BarChart2, CircleIcon, Settings,Home, LogOut, BookOpen, Book, BoxesIcon, DollarSign, FileText, Filter } from 'lucide-react'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import Sidebar from '@/components/Sidebar';
 import DashboardContent from '@/components/DashboardContent';
 import { useRouter } from 'next/navigation';
@@ -86,6 +86,9 @@ export default function TradingDashboardPage() {
           {tabs.map((tab, index) => (
             tab.id === 'filter' ? (
               <Sheet key={tab.id} open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                <SheetHeader>
+                <SheetDescription/>
+                </SheetHeader>
                 <SheetTrigger asChild>
                   <button
                     className={`p-2 rounded-full ${

@@ -25,6 +25,7 @@ interface FormattedCalData {
   date: string;
   profitLoss: number;
   commissions: number;
+  net: number;
 }
 
 const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
@@ -113,8 +114,9 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
   const formattedData: FormattedCalData[] = calendarData
     .map(day => ({
       date: new Date(day.date).toISOString().split('T')[0], // Convert to YYYY-MM-DD format
-      profitLoss: parseFloat(day.total_profit_loss) + parseFloat(day.total_commissions) + parseFloat(day.total_fees),
-      commissions: parseFloat(day.total_commissions)
+      profitLoss: parseFloat(day.total_profit_loss),
+      commissions: parseFloat(day.total_commissions),
+      net:parseFloat(day.total_profit_loss) + parseFloat(day.total_commissions) + parseFloat(day.total_fees),
     }));
 
   const columns: ColumnDef<FormattedCalData>[] = [
@@ -136,6 +138,11 @@ const Calendar: React.FC<CalendarProps> = ({ onContentLoaded }) => {
       accessorKey: "commissions",
       header: "Commissions",
       cell: ({ row }) => formatNumber(row.original.commissions),
+    },
+    {
+      accessorKey: "net",
+      header: "NEt",
+      cell: ({ row }) => formatNumber(row.original.net),
     },
   ];
 

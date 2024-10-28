@@ -35,6 +35,7 @@ interface ClosedPositionBySymbol {
   total_profit_loss: number;
   total_commissions: number;
   total_fees: number;
+  net_profit: number
 }
 
 interface ClosedPositionByMonth {
@@ -42,6 +43,7 @@ interface ClosedPositionByMonth {
   total_profit_loss: number;
   total_commissions: number;
   total_fees: number;
+  net_profit: number
 }
 
 const monthAbbreviations = [
@@ -106,7 +108,15 @@ const ClosedPositions: React.FC<ClosedPositionsProps> = ({ onContentLoaded,conte
             throw new Error('Failed to fetch chart data');
           }
           const chartDataResult = await chartDataResponse.json();
-          setChartData(chartDataResult);
+
+          //format data to include net ..
+          const formattedData = chartDataResult.map((item:any) => ({
+            ...item,
+            close_month: getMonthAbbreviation(item.close_month),
+            net_profit: Number(item.total_profit_loss) + Number(item.total_commissions) + Number(item.total_fees)
+          }));
+
+          setChartData(formattedData);
           //we going to show horizontal bars if data set is large even on large screens.
           if(chartDataResult.length>50){
             setIsLargeScreen(false);

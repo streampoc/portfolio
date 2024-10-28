@@ -219,7 +219,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
                                 parseFloat(yearData.total_commissions) + 
                                 parseFloat(yearData.total_fees);
           return (
-            <>
+            <React.Fragment key={`FRAG_${yearData.close_year}`}>
             <TouchFriendlyTooltip
               key={`SUM_${yearData.close_year}`}
               content={
@@ -256,12 +256,12 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
               aria-label={`Net Profit/Loss for ${yearData.close_year}`}
             />
           </TouchFriendlyTooltip>
-          </>
+          </React.Fragment>
           );
         })}
         {appliedFilters.year !== 'All Years' && moneySummaryData.map((moneyData,index) => (
           <TouchFriendlyTooltip
-            key={`MS_${moneyData.close_year}`}
+            key={`MS_${moneyData.close_year} - ${moneyData.symbol}`}
             content={
               <p key={`MS_PM_${moneyData.close_year}`}>Total amount for {moneyData.symbol} in {moneyData.close_year}</p>
             }
