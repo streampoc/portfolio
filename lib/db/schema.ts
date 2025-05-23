@@ -7,9 +7,10 @@ import {
     integer,
     decimal,
     boolean,
-    unique
+    unique,
   } from 'drizzle-orm/pg-core';
-  import { relations } from 'drizzle-orm';
+  import { relations,sql } from 'drizzle-orm';
+
   
   export const users = pgTable('users', {
     id: serial('id').primaryKey(),
@@ -62,6 +63,8 @@ import {
     close_month: integer('close_month'),
     open_week: text('open_week'),
     close_week: text('close_week'),
+    creation_date : timestamp('creation_date').default(sql`now()`),
+    updated_date : timestamp('updated_date').default(sql`now()`),
   });
 
   export type User = typeof users.$inferSelect;
