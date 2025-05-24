@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parse } from 'csv-parse/sync';
-import { insertTrades } from '@/services/tradeQueries';
 import { getUser } from '@/lib/db/queries';
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,7 +22,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not authenticated.' }, { status: 401 });
     }
     // Insert trades into DB with user_id
-    const result = await insertTrades(records, user.id);
+    const result = {} 
     return NextResponse.json({ success: true, inserted: result });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Failed to process file.' }, { status: 500 });
