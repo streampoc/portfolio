@@ -6,7 +6,6 @@ import { ThemeToggle } from "@/components/Common/ThemeToggle"
 import { BarChart2, CircleIcon, Settings,Home, LogOut, BookOpen, Book, BoxesIcon, DollarSign, FileText, Filter } from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import Sidebar from '@/components/Sidebar';
-import DashboardContent from '@/components/DashboardContent';
 import { useRouter } from 'next/navigation';
 import { usePathname } from 'next/navigation';
 
@@ -15,7 +14,7 @@ import { useUser } from '@/lib/auth';
 import { signOut } from '@/app/(login)/actions';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-
+import DashboardContent from '@/components/DashboardContent';
 
 import {
   DropdownMenu,
@@ -33,10 +32,11 @@ const tabs = [
   { id: 'stocks', label: 'Stocks', icon: BoxesIcon },
   { id: 'dividends', label: 'Dividends', icon: DollarSign },
   { id: 'details', label: 'Details', icon: FileText },
+  { id: 'upload-trades', label: 'Upload Trades', icon: CircleIcon }, // Add this line
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
-export default function TradingDashboardPage() {
+export default function TradingDashboardPage({  }) {
   const [activeTab, setActiveTab] = useState('home');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   

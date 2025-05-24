@@ -13,6 +13,7 @@ const ClosedPositions = lazy(() => import('./Positions/ClosedPositions'));
 const Stocks = lazy(() => import('./Stocks/Stocks'));
 const Dividends = lazy(() => import('./Dividends/Dividends'));
 const Details = lazy(() => import('./Details/Details'));
+const UploadTrades = lazy(() => import('./Positions/UploadTrades'));
 
 interface DashboardContentProps {
   activeTab: string;
@@ -53,6 +54,7 @@ const DashboardContent: React.FC<DashboardContentProps> = ({ activeTab }) => {
         {activeTab === 'dividends' && <Dividends onContentLoaded={handleContentLoaded} />}
         {activeTab === 'details' && <Details onContentLoaded={handleContentLoaded} />}
         {activeTab === 'settings' && <SettingsContent onContentLoaded={handleContentLoaded} />}
+        {activeTab === 'upload-trades' && <UploadTrades />}
       </Suspense>
     </ErrorBoundary>
   );

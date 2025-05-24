@@ -475,7 +475,6 @@ export async function getClosedPositionsByMonth(filters: any,user:User) {
 }
 
 // Add this function to your existing tradeQueries.ts file
-
 export async function getDetailsData(filters: any,user:User) {
   let paramIndex = 1;
 
@@ -675,3 +674,6 @@ export async function getMoneySummary(filters: {
     throw error;
   }
 }
+
+
+
