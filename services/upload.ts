@@ -11,16 +11,130 @@ function getWeekNumber(date: Date): number {
 
 // Utility to match trades before inserting into the database
 function parseNumber(val: any) {
+  if (val === undefined || val === null || val === '') return 0;
   if (typeof val === 'number') return val;
   if (typeof val === 'string') {
-    return Number(val.replace(/[$,]/g, ''));
+    // Remove currency symbols, commas and handle negative values with parentheses
+    const cleanedVal = val.replace(/[$,]/g, '').replace(/\(([^)]+)\)/, '-$1');
+    const result = Number(cleanedVal);
+    return isNaN(result) ? 0 : result;
   }
   return 0;
 }
 
+// Preprocess trade data to normalize and enhance matching
+function preprocessTrade(trade: any) {
+  const normalizedTrade = { ...trade };
+  
+  // Handle empty Action field
+  if (!normalizedTrade.Action || normalizedTrade.Action.trim() === '') {
+    if (normalizedTrade.Type === 'Receive Deliver') {
+      const hasSpecialSymbol = normalizedTrade.Symbol && (
+        normalizedTrade.Symbol.includes('SPXW') || normalizedTrade.Symbol.includes('NDXP')
+      );
+      
+      const hasSpecialDesc = normalizedTrade.Description && (
+        (!normalizedTrade.Description.includes("Removal of option") || 
+          normalizedTrade.Description.includes("Cash settlement"))
+      );
+      
+      const hasStandardDesc = normalizedTrade.Description && (
+        normalizedTrade.Description.includes("assignment") || 
+        normalizedTrade.Description.includes("expiration") || 
+        normalizedTrade.Description.includes("exercise")
+      );
+      
+      // Apply rule based on symbol and description
+      if ((hasSpecialSymbol && hasSpecialDesc) || 
+          (!hasSpecialSymbol && hasStandardDesc)) {
+        normalizedTrade.Action = 'SELL_TO_CLOSE';
+      }
+    }
+  } else if (normalizedTrade['Instrument Type'] === 'Equity' && 
+             normalizedTrade.Symbol && 
+             !normalizedTrade.Symbol.includes('SPXW')) {
+    // Simplify equity actions
+    if (normalizedTrade.Action.includes('SELL')) {
+      normalizedTrade.Action = 'SELL';
+    } else if (normalizedTrade.Action.includes('BUY')) {
+      normalizedTrade.Action = 'BUY';
+    }
+  }
+  
+  // Handle futures and future options
+  if (normalizedTrade['Instrument Type'] === 'Future' && normalizedTrade.Symbol) {
+    if (normalizedTrade.Symbol.length > 6) {
+      normalizedTrade['Underlying Symbol'] = normalizedTrade.Symbol.slice(0, -3);
+    } else {
+      normalizedTrade['Underlying Symbol'] = normalizedTrade.Symbol.slice(0, -2);
+    }
+  }
+  
+  if (normalizedTrade['Instrument Type'] === 'Future Option' && normalizedTrade['Underlying Symbol']) {
+    normalizedTrade['Underlying Symbol'] = normalizedTrade['Underlying Symbol'].slice(0, -2);
+  }
+  
+  // Set default Underlying Symbol if not present
+  if (!normalizedTrade['Underlying Symbol']) {
+    normalizedTrade['Underlying Symbol'] = normalizedTrade.Symbol || '';
+  }
+  
+  // Handle special values
+  if (normalizedTrade.Commissions === '--' || normalizedTrade.Commissions === undefined || normalizedTrade.Commissions === '') {
+    normalizedTrade.Commissions = '0';
+  }
+  if (normalizedTrade.Fees === '--' || normalizedTrade.Fees === undefined || normalizedTrade.Fees === '') {
+    normalizedTrade.Fees = '0';
+  }
+  
+  // Handle Money Movement
+  if (normalizedTrade.Type === 'Money Movement') {
+    if (normalizedTrade['Instrument Type'] === 'Equity') {
+      normalizedTrade.Action = 'MONEY';
+      normalizedTrade['Underlying Symbol'] = normalizedTrade.Symbol;
+      normalizedTrade.Symbol = 'DIVIDEND';
+    } else if (normalizedTrade['Instrument Type'] === 'Future') {
+      normalizedTrade.Action = 'MONEY';
+      normalizedTrade.Symbol = 'MTM';
+    } else if (normalizedTrade.Description && normalizedTrade.Description.includes('FROM')) {
+      normalizedTrade.Action = 'MONEY';
+      normalizedTrade['Underlying Symbol'] = 'MARGIN';
+      normalizedTrade.Symbol = 'MARGIN';
+    } else if (normalizedTrade.Description && normalizedTrade.Description.includes('ACH')) {
+      normalizedTrade.Action = 'MONEY';
+      normalizedTrade['Underlying Symbol'] = 'FUNDS';
+      normalizedTrade.Symbol = 'FUNDS';
+    } else if (normalizedTrade.Description && normalizedTrade.Description.includes('INTEREST ON CREDIT BALANCE')) {
+      normalizedTrade.Action = 'MONEY';
+      normalizedTrade['Underlying Symbol'] = 'INTEREST';
+      normalizedTrade.Symbol = 'INTEREST';
+    } else if (normalizedTrade.Description && normalizedTrade.Description.includes('Regulatory fee adjustment')) {
+      normalizedTrade.Action = 'MONEY';
+      normalizedTrade['Underlying Symbol'] = 'INTEREST';
+      normalizedTrade.Symbol = 'INTEREST';
+    }
+  }
+  
+  return normalizedTrade;
+}
+
 export async function matchTrades(trades: any[], debugLogs?: string[]) {
+  // Preprocess trades with enhanced rules
+  const preprocessedTrades = trades.map(trade => preprocessTrade(trade));
+  
+  // Debug log for commissions and fees
+  const sampleTrade = preprocessedTrades[0];
+  if (sampleTrade) {
+    console.log('Sample trade commissions and fees:', {
+      raw_commissions: sampleTrade.Commissions,
+      raw_fees: sampleTrade.Fees,
+      parsed_commissions: parseNumber(sampleTrade.Commissions),
+      parsed_fees: parseNumber(sampleTrade.Fees)
+    });
+  }
+
   // Remove duplicates based on trade metadata
-  const uniqueTrades = trades.reduce((acc: any[], t: any) => {
+  const uniqueTrades = preprocessedTrades.reduce((acc: any[], t: any) => {
     const tradeKey = `${t.Date}-${t.Symbol}-${t.Action}-${t.Quantity}-${t['Average Price']}-${t.Account}`;
     if (!acc.find(x => `${x.Date}-${x.Symbol}-${x.Action}-${x.Quantity}-${x['Average Price']}-${x.Account}` === tradeKey)) {
       acc.push(t);
@@ -31,17 +145,25 @@ export async function matchTrades(trades: any[], debugLogs?: string[]) {
   }, []);
 
   // Normalize and generate contractKey for each trade 
-  const filtered = uniqueTrades.filter(t => t.Type === 'Trade').map(t => {
+  const filtered = uniqueTrades.filter(t => t.Type === 'Trade' || t.Type === 'Receive Deliver').map(t => {
     const norm: any = {};
     for (const k in t) {
       norm[k.trim()] = typeof t[k] === 'string' ? t[k].trim() : t[k];
     }
     norm.Quantity = parseNumber(norm.Quantity);
     norm['Average Price'] = parseNumber(norm['Average Price']);
+    norm['Commissions'] = parseNumber(norm['Commissions']);
+    norm['Fees'] = parseNumber(norm['Fees']);
     // Normalize Action to 'OPEN' or 'CLOSE'
-    if (norm.Action === 'BUY_TO_OPEN' || norm.Action === 'SELL_TO_OPEN') {
+    if (norm.Action === 'BUY_TO_OPEN' || norm.Action === 'SELL_TO_OPEN' || norm.Action === 'BUY') {
       norm.ActionNorm = 'OPEN';
-    } else if (norm.Action === 'BUY_TO_CLOSE' || norm.Action === 'SELL_TO_CLOSE') {
+    } else if (
+      norm.Action === 'BUY_TO_CLOSE' || 
+      norm.Action === 'SELL_TO_CLOSE' || 
+      norm.Action === 'SELL' ||
+      norm.Type === 'Receive Deliver' ||
+      !norm.Action // treat empty Action as CLOSE
+    ) {
       norm.ActionNorm = 'CLOSE';
     } else {
       norm.ActionNorm = norm.Action;
@@ -84,10 +206,39 @@ export async function matchTrades(trades: any[], debugLogs?: string[]) {
         const openQty = openTrade.remainingQty;
         const matchQty = Math.min(openQty, closeQty);
         const openPrice = openTrade['Average Price'];
-        const closePrice = trade['Average Price'];
+        let closePrice = trade['Average Price'];
+        
+        // Fix for the close price issue - ensure it's a number
+        if (closePrice === undefined || closePrice === '--' || closePrice === '') {
+          closePrice = 0.0;
+        }
 
-        // Calculate profitLoss as the sum of trade values (sign already included)
-        let profitLoss = parseNumber(trade.Value) + parseNumber(openTrade.Value);
+        // Calculate profit/loss properly using quantity, open_price, and close_price
+        let profitLoss;
+        
+        // Special case for equities (symbol === underlying)
+        if (openTrade.Symbol === openTrade['Underlying Symbol']) {
+          // For equities, we need to account for the direction of the trade
+          // BUY is negative (money spent), SELL is positive (money received)
+          const isBuyToOpen = openTrade.Action.includes('BUY') || openTrade.Action === 'BUY_TO_OPEN';
+          const isSellToClose = trade.Action.includes('SELL') || trade.Action === 'SELL_TO_CLOSE';
+          
+          if (isBuyToOpen && isSellToClose) {
+            // Standard case: bought then sold
+            // Profit = (sell price - buy price) * quantity
+            profitLoss = (closePrice + openPrice) * matchQty;
+          } else if (!isBuyToOpen && !isSellToClose) {
+            // Short case: sold short then bought to cover
+            // Profit = (short price - cover price) * quantity
+            profitLoss = (openPrice + closePrice) * matchQty;
+          } else {
+            // Fallback to using values if the direction is unclear
+            profitLoss = parseNumber(trade.Value) + parseNumber(openTrade.Value);
+          }
+        } else {
+          // For options and other instruments, use sum of values method
+          profitLoss = parseNumber(trade.Value) + parseNumber(openTrade.Value);
+        }
 
         // Create a single row for this matched pair
         const matchKey = `${key}-${openTrade.Date}-${trade.Date}-${matchQty}`;
@@ -100,8 +251,8 @@ export async function matchTrades(trades: any[], debugLogs?: string[]) {
           open_price: openPrice,
           close_price: closePrice,
           profit_loss: profitLoss,
-          commissions: (openTrade['Commissions'] || 0) + (trade['Commissions'] || 0),
-          fees: (openTrade['Fees'] || 0) + (trade['Fees'] || 0),
+          commissions: parseNumber(openTrade['Commissions']) + parseNumber(trade['Commissions']),
+          fees: parseNumber(openTrade['Fees']) + parseNumber(trade['Fees']),
           account: openTrade.Account // Add account to matched trade
         };
 
@@ -123,11 +274,31 @@ export async function matchTrades(trades: any[], debugLogs?: string[]) {
     return new Date(b.close_date).getTime() - new Date(a.close_date).getTime();
   });
 
+  // Debug log for matched trades commissions and fees
+  if (sortedTrades.length > 0) {
+    console.log('First matched trade commissions and fees:', {
+      commissions: sortedTrades[0].commissions,
+      fees: sortedTrades[0].fees,
+      commissions_type: typeof sortedTrades[0].commissions,
+      fees_type: typeof sortedTrades[0].fees
+    });
+  }
+
+  // Collect remaining open trades
+  const remainingOpenTrades: any[] = [];
+  for (const opens of openMap.values()) {
+    for (const open of opens) {
+      if (open.remainingQty > 0) {
+        remainingOpenTrades.push(open);
+      }
+    }
+  }
+
   debugLogs?.push('==== DEBUG: Matched trades summary ====');
   sortedTrades.forEach(t => {
     debugLogs?.push(JSON.stringify(t, null, 2));
   });
   debugLogs?.push('==== END DEBUG ====');
 
-  return sortedTrades;
+  return { matched: sortedTrades, remainingOpenTrades };
 }
