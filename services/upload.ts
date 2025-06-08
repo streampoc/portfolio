@@ -118,7 +118,7 @@ function preprocessTrade(trade: any) {
   return normalizedTrade;
 }
 
-export async function matchTrades(trades: any[], debugLogs?: string[]) {
+export async function matchTrades(trades: any[], debugLogs?: string[], previousOpenTrades: any[] = []) {
   // Preprocess trades with enhanced rules
   const preprocessedTrades = trades.map(trade => preprocessTrade(trade));
   
@@ -186,6 +186,43 @@ export async function matchTrades(trades: any[], debugLogs?: string[]) {
   const openMap = new Map<string, any[]>();
   const matchedTrades = new Map<string, any>();
 
+  // First add previously open trades to the open map
+  if (previousOpenTrades && previousOpenTrades.length > 0) {
+    console.log(`Processing ${previousOpenTrades.length} previously open trades`);
+    for (const trade of previousOpenTrades) {
+      // Ensure the trade has the required properties
+      if (trade.Symbol && (trade.remainingQty > 0)) {
+        // Generate the contractKey if it doesn't exist
+        if (!trade.contractKey) {
+          trade.contractKey = [
+            trade.Symbol, 
+            trade['Underlying Symbol'] || '', 
+            trade['Call or Put'] || ''
+          ].join('|');
+        }
+        
+        // Mark this trade as previously open for tracking purposes
+        trade.isPreviouslyOpen = true;
+        
+        if (!openMap.has(trade.contractKey)) {
+          openMap.set(trade.contractKey, []);
+        }
+        
+        // Add to the open map with the remaining quantity
+        openMap.get(trade.contractKey)!.push(trade);
+        
+        // Debug log for previously open trades
+        console.log(`Added previously open trade: ${JSON.stringify({
+          symbol: trade.Symbol,
+          underlying: trade['Underlying Symbol'],
+          contractKey: trade.contractKey,
+          remainingQty: trade.remainingQty
+        })}`);
+      }
+    }
+  }
+
+  // Then add new open trades from the current file
   for (const trade of filtered) {
     if (trade.ActionNorm === 'OPEN') {
       if (!openMap.has(trade.contractKey)) openMap.set(trade.contractKey, []);
@@ -195,77 +232,105 @@ export async function matchTrades(trades: any[], debugLogs?: string[]) {
 
   // Now loop again and match all close trades to opens
   for (const trade of filtered) {
-    if (trade.ActionNorm !== 'CLOSE') continue;
-    const key = trade.contractKey;
-    let closeQty = trade.Quantity;
-    debugLogs?.push(`Matching close trade: ${JSON.stringify(trade)} | contractKey: ${key}`);
+    try {
+      if (trade.ActionNorm !== 'CLOSE') continue;
+      const key = trade.contractKey;
+      let closeQty = trade.Quantity;
+      
+      // Enhanced debug logging
+      console.log(`Matching close trade: Symbol=${trade.Symbol}, Date=${trade.Date}, Qty=${trade.Quantity}, contractKey=${key}`);
+      debugLogs?.push(`Matching close trade: ${JSON.stringify(trade)} | contractKey: ${key}`);
 
-    while (closeQty > 0) {
-      if (openMap.has(key) && openMap.get(key)!.length > 0) {
-        const openTrade = openMap.get(key)![0];
-        const openQty = openTrade.remainingQty;
-        const matchQty = Math.min(openQty, closeQty);
-        const openPrice = openTrade['Average Price'];
-        let closePrice = trade['Average Price'];
-        
-        // Fix for the close price issue - ensure it's a number
-        if (closePrice === undefined || closePrice === '--' || closePrice === '') {
-          closePrice = 0.0;
-        }
-
-        // Calculate profit/loss properly using quantity, open_price, and close_price
-        let profitLoss;
-        
-        // Special case for equities (symbol === underlying)
-        if (openTrade.Symbol === openTrade['Underlying Symbol']) {
-          // For equities, we need to account for the direction of the trade
-          // BUY is negative (money spent), SELL is positive (money received)
-          const isBuyToOpen = openTrade.Action.includes('BUY') || openTrade.Action === 'BUY_TO_OPEN';
-          const isSellToClose = trade.Action.includes('SELL') || trade.Action === 'SELL_TO_CLOSE';
+      while (closeQty > 0) {
+        if (openMap.has(key) && openMap.get(key)!.length > 0) {
+          const openTrade = openMap.get(key)![0];
+          const openQty = openTrade.remainingQty;
+          const matchQty = Math.min(openQty, closeQty);
+          const openPrice = openTrade['Average Price'];
+          let closePrice = trade['Average Price'];
           
-          if (isBuyToOpen && isSellToClose) {
-            // Standard case: bought then sold
-            // Profit = (sell price - buy price) * quantity
-            profitLoss = (closePrice + openPrice) * matchQty;
-          } else if (!isBuyToOpen && !isSellToClose) {
-            // Short case: sold short then bought to cover
-            // Profit = (short price - cover price) * quantity
-            profitLoss = (openPrice + closePrice) * matchQty;
+          // Check if this is a previously open trade that's being matched
+          const isPreviouslyOpen = openTrade.isPreviouslyOpen;
+          
+          if (isPreviouslyOpen) {
+            console.log(`Matched a previously open trade: ${JSON.stringify({
+              symbol: openTrade.Symbol,
+              openDate: openTrade.Date,
+              closeDate: trade.Date,
+              openQty,
+              closeQty: matchQty
+            })}`);
+          }
+
+          // Fix for the close price issue - ensure it's a number
+          if (closePrice === undefined || closePrice === '--' || closePrice === '') {
+            closePrice = 0.0;
+          }
+
+          // Calculate profit/loss properly using quantity, open_price, and close_price
+          let profitLoss;
+          
+          // Special case for equities (symbol === underlying)
+          if (openTrade.Symbol === openTrade['Underlying Symbol']) {
+            // For equities, we need to account for the direction of the trade
+            // BUY is negative (money spent), SELL is positive (money received)
+            const isBuyToOpen = openTrade.Action.includes('BUY') || openTrade.Action === 'BUY_TO_OPEN';
+            const isSellToClose = trade.Action.includes('SELL') || trade.Action === 'SELL_TO_CLOSE';
+            
+            if (isBuyToOpen && isSellToClose) {
+              // Standard case: bought then sold
+              // Profit = (sell price - buy price) * quantity
+              profitLoss = (closePrice + openPrice) * matchQty;
+            } else if (!isBuyToOpen && !isSellToClose) {
+              // Short case: sold short then bought to cover
+              // Profit = (short price - cover price) * quantity
+              profitLoss = (openPrice + closePrice) * matchQty;
+            } else {
+              // Fallback to using values if the direction is unclear
+              profitLoss = parseNumber(trade.Value) + parseNumber(openTrade.Value);
+            }
           } else {
-            // Fallback to using values if the direction is unclear
+            // For options and other instruments, use sum of values method
             profitLoss = parseNumber(trade.Value) + parseNumber(openTrade.Value);
           }
+
+          // Create a single row for this matched pair
+          const matchKey = `${key}-${openTrade.Date}-${trade.Date}-${matchQty}`;
+          const matchedTrade = {
+            open_date: openTrade.Date,
+            close_date: trade.Date,
+            symbol: openTrade.Symbol,
+            underlying_symbol: openTrade['Underlying Symbol'],
+            quantity: matchQty,
+            open_price: openPrice,
+            close_price: closePrice,
+            profit_loss: profitLoss,
+            commissions: parseNumber(openTrade['Commissions']) + parseNumber(trade['Commissions']),
+            fees: parseNumber(openTrade['Fees']) + parseNumber(trade['Fees']),
+            account: openTrade.Account // Add account to matched trade
+          };
+
+          matchedTrades.set(matchKey, matchedTrade);
+          
+          openTrade.remainingQty -= matchQty;
+          closeQty -= matchQty;
+          if (openTrade.remainingQty === 0) {
+            openMap.get(key)!.shift();
+          }
         } else {
-          // For options and other instruments, use sum of values method
-          profitLoss = parseNumber(trade.Value) + parseNumber(openTrade.Value);
+          console.log(`No matching open trade found for: ${JSON.stringify({
+            symbol: trade.Symbol,
+            date: trade.Date,
+            qty: closeQty,
+            contractKey: key
+          })}`);
+          closeQty = 0; // No matching open trade found, skip this close
         }
-
-        // Create a single row for this matched pair
-        const matchKey = `${key}-${openTrade.Date}-${trade.Date}-${matchQty}`;
-        const matchedTrade = {
-          open_date: openTrade.Date,
-          close_date: trade.Date,
-          symbol: openTrade.Symbol,
-          underlying_symbol: openTrade['Underlying Symbol'],
-          quantity: matchQty,
-          open_price: openPrice,
-          close_price: closePrice,
-          profit_loss: profitLoss,
-          commissions: parseNumber(openTrade['Commissions']) + parseNumber(trade['Commissions']),
-          fees: parseNumber(openTrade['Fees']) + parseNumber(trade['Fees']),
-          account: openTrade.Account // Add account to matched trade
-        };
-
-        matchedTrades.set(matchKey, matchedTrade);
-        
-        openTrade.remainingQty -= matchQty;
-        closeQty -= matchQty;
-        if (openTrade.remainingQty === 0) {
-          openMap.get(key)!.shift();
-        }
-      } else {
-        closeQty = 0; // No matching open trade found, skip this close
       }
+    } catch (error) {
+      console.error(`Error matching trade: ${JSON.stringify(trade)}`, error);
+      debugLogs?.push(`Error matching trade: ${JSON.stringify(trade)} - ${error}`);
+      // Continue processing other trades
     }
   }
 

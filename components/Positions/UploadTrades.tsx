@@ -35,32 +35,56 @@ export default function UploadTrades() {
   const [rawRows, setRawRows] = useState<Trade[] | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [remainingOpen, setRemainingOpen] = useState<any[] | null>(null);
+  const [fileCount, setFileCount] = useState<number>(0);
   
   // Quick filter states
   const [symbolFilter, setSymbolFilter] = useState('');
   const [underlyingFilter, setUnderlyingFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
 
-  // Compute filtered trades for preview
+  // Add a new state for accumulating trades
+  const [allMatched, setAllMatched] = useState<MatchedTrade[]>([]);
+  const [allRemainingOpen, setAllRemainingOpen] = useState<any[]>([]);
+  
+  // Add a count of processed files
+  const [processedFileCount, setProcessedFileCount] = useState<number>(0);
+  
+  // Add a new state for tracking matched previous open trades
+  const [matchedPreviousOpenCount, setMatchedPreviousOpenCount] = useState<number>(0);
+  
+  // Add state for tracking progress
+  const [processingProgress, setProcessingProgress] = useState<number>(0);
+  
+  // Add state for collapsible tables
+  const [summaryCollapsed, setSummaryCollapsed] = useState<boolean>(false);
+  const [matchedTradesPreviewCollapsed, setMatchedTradesPreviewCollapsed] = useState<boolean>(false);
+  const [matchedTradesCollapsed, setMatchedTradesCollapsed] = useState<boolean>(false);
+  const [openTradesCollapsed, setOpenTradesCollapsed] = useState<boolean>(false);
+  
+  // Compute filtered trades for preview using all matched trades
   const filteredMatched = useMemo(() => {
-    if (!matched) return [];
-    return matched.filter(trade => {
-      const symbol = trade.symbol.replace(/\s+/g, '').toLowerCase();
+    // Return empty array if no matched trades
+    if (!allMatched || allMatched.length === 0) return [];
+    
+    return allMatched.filter(trade => {
+      const symbol = trade.symbol?.replace(/\s+/g, '').toLowerCase() || '';
       const filterSymbol = symbolFilter.replace(/\s+/g, '').toLowerCase();
-      const underlying = trade.underlying_symbol.toLowerCase();
-      const dateStr = `${trade.open_date} ${trade.close_date}`.toLowerCase();
+      const underlying = trade.underlying_symbol?.toLowerCase() || '';
+      const dateStr = `${trade.open_date || ''} ${trade.close_date || ''}`.toLowerCase();
       return (
         (!symbolFilter || symbol.includes(filterSymbol)) &&
         (!underlyingFilter || underlying.includes(underlyingFilter.toLowerCase())) &&
         (!dateFilter || dateStr.includes(dateFilter.toLowerCase()))
       );
     });
-  }, [matched, symbolFilter, underlyingFilter, dateFilter]);
+  }, [allMatched, symbolFilter, underlyingFilter, dateFilter]);
 
-  // Compute filtered remaining open trades for preview
+  // Compute filtered remaining open trades for preview using all open trades
   const filteredRemainingOpen = useMemo(() => {
-    if (!remainingOpen) return [];
-    return remainingOpen.filter(trade => {
+    // Return empty array if no remaining open trades
+    if (!allRemainingOpen || allRemainingOpen.length === 0) return [];
+    
+    return allRemainingOpen.filter(trade => {
       const symbol = (trade.Symbol || '').replace(/\s+/g, '').toLowerCase();
       const filterSymbol = symbolFilter.replace(/\s+/g, '').toLowerCase();
       const underlying = (trade['Underlying Symbol'] || '').toLowerCase();
@@ -71,14 +95,14 @@ export default function UploadTrades() {
         (!dateFilter || dateStr.includes(dateFilter.toLowerCase()))
       );
     });
-  }, [remainingOpen, symbolFilter, underlyingFilter, dateFilter]);
+  }, [allRemainingOpen, symbolFilter, underlyingFilter, dateFilter]);
 
-  // Calculate P/L summary by underlying symbol
+  // Calculate P/L summary by underlying symbol using all accumulated trades
   const summaryByUnderlying = useMemo(() => {
     const summary = new Map<string, SummaryRow>();
     
     // Add realized P/L from matched trades
-    if (filteredMatched) {
+    if (filteredMatched.length > 0) {
       // Debug log for commissions and fees
       if (filteredMatched.length > 0) {
         console.log('Sample trade for summary calculation:', {
@@ -157,12 +181,17 @@ export default function UploadTrades() {
   }, [filteredMatched, filteredRemainingOpen]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     
     setUploading(true);
     setMessage(null);
+    setFileCount(files.length);
+    setProcessingProgress(0);
 
+    // Process the selected file
+    const file = files[0]; // We'll process one file at a time
+    
     Papa.parse<Trade>(file, {
       header: true,
       complete: async (results) => {
@@ -176,20 +205,34 @@ export default function UploadTrades() {
             }
             return trimmed;
           });
+          
+          // Keep track of the raw rows for the current file
           setRawRows(trimmedTrades);
 
-          // Call the API route to match trades
+          // Update progress
+          setProcessingProgress(33);
+
+          // Call the API route to match trades, passing existing open trades
           const res = await fetch('/api/matchTrades', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(trimmedTrades),
+            body: JSON.stringify({
+              trades: trimmedTrades,
+              previousOpenTrades: allRemainingOpen // Pass all previously remaining open trades
+            }),
           });
+          
+          // Update progress
+          setProcessingProgress(66);
+          
           if (!res.ok) {
             const error = await res.json();
             throw new Error(error.error || 'Failed to match trades');
           }
+          
           const data = await res.json();
-          // Log the first 3 matched trades for debugging
+          
+          // Debug logging
           if (data.matched && data.matched.length > 0) {
             console.log('First 3 matched trades:', data.matched.slice(0, 3));
             console.log('Sample commissions and fees:', data.matched.slice(0, 3).map((t: MatchedTrade) => ({
@@ -200,11 +243,67 @@ export default function UploadTrades() {
               fees_type: typeof t.fees
             })));
           }
+          
+          // Accumulate the matched trades
+          const newMatched = [...allMatched, ...(data.matched || [])];
+          
+          // Calculate how many previously open trades were matched
+          // Only count matches from previously open trades if this isn't the first file
+          const previousOpenTradesCount = allRemainingOpen.length;
+          const newRemainingOpenCount = data.remainingOpenTrades?.length || 0;
+          
+          let matchedFromPrevious = 0;
+          // Reset matchedPreviousOpenCount if this is the first file after a reset
+          if (processedFileCount === 0) {
+            setMatchedPreviousOpenCount(0);
+          }
+          
+          if (processedFileCount > 0) { // Only calculate if this isn't the first file
+            matchedFromPrevious = previousOpenTradesCount - newRemainingOpenCount + (data.matched?.length || 0) - trimmedTrades.filter(t => 
+              t.Action === 'BUY_TO_CLOSE' || 
+              t.Action === 'SELL_TO_CLOSE' || 
+              (t.Action === 'SELL' && t.Type === 'Trade') ||
+              (t.Action === 'BUY' && t.Type === 'Trade')
+            ).length;
+            
+            // Ensure we don't get negative values
+            matchedFromPrevious = Math.max(0, matchedFromPrevious);
+            
+            setMatchedPreviousOpenCount(prev => prev + matchedFromPrevious);
+          }
+          
+          // IMPORTANT: Replace all remaining open trades with the new list
+          // This ensures open trades are correctly updated with each file
+          const newRemainingOpen = data.remainingOpenTrades || [];
+          
+          // Update both the current view and the accumulated state
           setMatched(data.matched);
           setRemainingOpen(data.remainingOpenTrades);
-          setShowConfirm(true);
+          setAllMatched(newMatched);
+          setAllRemainingOpen(newRemainingOpen);
+          
+          // Increment the processed file count
+          setProcessedFileCount(prev => prev + 1);
+          
+          // Update progress to complete
+          setProcessingProgress(100);
+          
+          // Don't show confirmation dialog automatically
+          // setShowConfirm(true);
+          
+          // Give user feedback
+          const matchedMsg = (processedFileCount > 0 && matchedFromPrevious > 0)
+            ? ` (including ${matchedFromPrevious} trades matched with previously open positions)` 
+            : '';
+            
+          const openPositionsMsg = newRemainingOpen.length > 0
+            ? ` Currently tracking ${newRemainingOpen.length} open positions.`
+            : '';
+          
+          setMessage(`Processed ${file.name} successfully. ${data.matched?.length || 0} trades matched${matchedMsg}. Total: ${newMatched.length} trades from ${processedFileCount + 1} files.${openPositionsMsg}`);
         } catch (error) {
           setMessage('Error processing trades: ' + (error as Error).message);
+          setProcessingProgress(0);
         } finally {
           setUploading(false);
         }
@@ -212,30 +311,45 @@ export default function UploadTrades() {
       error: (error: Error, file: File) => {
         setMessage('Error parsing CSV: ' + error.message);
         setUploading(false);
+        setProcessingProgress(0);
       }
     });
   };
 
+  // Function to handle confirmation
+  const handleConfirm = async () => {
+    await handleSave();
+  };
+  
   const handleSave = async () => {
-    if (!matched) return;
+    if (allMatched.length === 0) return;
     
     try {
       setUploading(true);
-      // Create form data from the original file
+      // Create form data from all the original files
       const formData = new FormData();
-      if (fileInputRef.current?.files?.[0]) {
-        formData.append('file', fileInputRef.current.files[0]);
+      
+      if (fileInputRef.current?.files) {
+        const files = fileInputRef.current.files;
+        for (let i = 0; i < files.length; i++) {
+          formData.append('files', files[i]);
+        }
       }
+      
       const res = await fetch('/api/uploadTrades', {
         method: 'POST',
         body: formData,
       });
 
       if (res.ok) {
-        setMessage('Trades uploaded successfully!');
+        setMessage(`${processedFileCount} ${processedFileCount === 1 ? 'file' : 'files'} with ${allMatched.length} trades uploaded successfully!`);
         setShowConfirm(false);
         setMatched(null);
         setRawRows(null);
+        setAllMatched([]);
+        setAllRemainingOpen([]);
+        setProcessedFileCount(0);
+        setFileCount(0);
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
@@ -254,27 +368,450 @@ export default function UploadTrades() {
     setShowConfirm(false);
     setMatched(null);
     setRawRows(null);
-    setMessage('Upload cancelled.');
+    // Note: We're not clearing allMatched and allRemainingOpen here
+    // to preserve accumulated data
+    setMessage('Upload preview cancelled. Previous data preserved.');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
+  // Reset function to clear all accumulated data
+  const handleReset = () => {
+    setAllMatched([]);
+    setAllRemainingOpen([]);
+    setProcessedFileCount(0);
+    setMatchedPreviousOpenCount(0);
+    setMatched(null);
+    setRawRows(null);
+    setProcessingProgress(0);
+    setMessage('All accumulated data has been reset.');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Process all files at once
+  const handleProcessAllFiles = async () => {
+    const files = fileInputRef.current?.files;
+    if (!files || files.length === 0) {
+      setMessage("No files selected.");
+      return;
+    }
+    
+    setUploading(true);
+    setMessage(`Processing all ${files.length} files...`);
+    setProcessingProgress(0);
+    
+    // Reset accumulated data
+    setAllMatched([]);
+    setAllRemainingOpen([]);
+    setProcessedFileCount(0);
+    setMatchedPreviousOpenCount(0); // Reset this counter too
+    
+    // Convert FileList to array and sort by filename (which may contain dates)
+    const fileArray = Array.from(files);
+    
+    // Try to extract dates from filenames and sort chronologically
+    try {
+      fileArray.sort((a, b) => {
+        // Extract dates from filenames if possible (assuming format like YYYY-MM-DD or similar)
+        const dateA = a.name.match(/\d{4}[-/]\d{1,2}[-/]\d{1,2}/);
+        const dateB = b.name.match(/\d{4}[-/]\d{1,2}[-/]\d{1,2}/);
+        
+        if (dateA && dateB) {
+          return new Date(dateA[0]).getTime() - new Date(dateB[0]).getTime();
+        }
+        
+        // Fallback to alphabetical sorting
+        return a.name.localeCompare(b.name);
+      });
+      
+      console.log("Files sorted for processing:", fileArray.map(f => f.name));
+    } catch (error) {
+      console.warn("Error sorting files, using original order:", error);
+    }
+    
+    // Initialize tracking of matched previous open trades
+    let totalMatchedFromPrevious = 0;
+    
+    // Use allTrades as a local variable to track matched trades during batch processing
+    let allTrades: MatchedTrade[] = [];
+    let currentRemainingOpen: any[] = []; // Track current open trades
+    let filesProcessed = 0;
+    
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
+      try {
+        // Update progress for each file
+        setProcessingProgress(Math.round((i / fileArray.length) * 100));
+        
+        // Parse the file
+        const results = await new Promise<Papa.ParseResult<Trade>>((resolve, reject) => {
+          Papa.parse<Trade>(file, {
+            header: true,
+            complete: (results) => resolve(results),
+            error: (error) => reject(error)
+          });
+        });
+        
+        // Process the trades
+        const trades = results.data as Trade[];
+        const trimmedTrades = trades.map(row => {
+          const trimmed: Trade = {};
+          for (const k in row) {
+            trimmed[k.trim()] = typeof row[k] === 'string' ? row[k].trim() : row[k];
+          }
+          return trimmed;
+        });
+        
+        // Match trades - pass the current open trades to consider for matching
+        const res = await fetch('/api/matchTrades', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            trades: trimmedTrades,
+            previousOpenTrades: currentRemainingOpen // Pass current open trades
+          }),
+        });
+        
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(`Failed to match trades in ${file.name}: ${error.error}`);
+        }
+        
+        const data = await res.json();
+        
+        // Calculate how many previously open trades were matched
+        // Only consider matches from previously processed files, not within the current file
+        const previousOpenTradesCount = currentRemainingOpen.length;
+        const newRemainingOpenCount = data.remainingOpenTrades?.length || 0;
+        
+        let matchedFromPrevious = 0;
+        if (i > 0) { // Only calculate if this isn't the first file
+          matchedFromPrevious = previousOpenTradesCount - newRemainingOpenCount + (data.matched?.length || 0) - trimmedTrades.filter(t => 
+            t.Action === 'BUY_TO_CLOSE' || 
+            t.Action === 'SELL_TO_CLOSE' || 
+            (t.Action === 'SELL' && t.Type === 'Trade') ||
+            (t.Action === 'BUY' && t.Type === 'Trade')
+          ).length;
+          
+          // Ensure we don't get negative values
+          matchedFromPrevious = Math.max(0, matchedFromPrevious);
+          
+          totalMatchedFromPrevious += matchedFromPrevious;
+        }
+        
+        // Accumulate the matched trades
+        allTrades = [...allTrades, ...(data.matched || [])];
+        
+        // Update the current open trades with the new remaining open trades
+        // This ensures that each file processes with the latest open positions
+        currentRemainingOpen = data.remainingOpenTrades || [];
+        
+        filesProcessed++;
+        
+        // Update state with progress
+        setMessage(`Processed ${filesProcessed} of ${fileArray.length} files. ${allTrades.length} trades matched so far.`);
+      } catch (error) {
+        setMessage(`Error processing ${file.name}: ${(error as Error).message}. ${filesProcessed} files processed successfully.`);
+        break;
+      }
+    }
+    
+    // Update all state variables with the final data
+    setAllMatched(allTrades);
+    setAllRemainingOpen(currentRemainingOpen);
+    setMatched(allTrades);
+    setRemainingOpen(currentRemainingOpen);
+    setProcessedFileCount(filesProcessed);
+    setMatchedPreviousOpenCount(totalMatchedFromPrevious);
+    setProcessingProgress(100);
+    
+    const matchedMsg = totalMatchedFromPrevious > 0 
+      ? ` (including ${totalMatchedFromPrevious} trades matched with previously open positions)` 
+      : '';
+    
+    const openPositionsMsg = currentRemainingOpen.length > 0
+      ? ` Currently tracking ${currentRemainingOpen.length} open positions.`
+      : '';
+      
+    setMessage(`Batch processing complete. Processed ${filesProcessed} of ${fileArray.length} files. ${allTrades.length} trades matched${matchedMsg}.${openPositionsMsg}`);
+    setUploading(false);
+  };
+
   return (
     <div className="p-4 border rounded bg-muted">
       <h2 className="font-bold mb-2">Upload Trades CSV</h2>
-      <input
-        type="file"
-        accept=".csv"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        disabled={uploading}
-        className="mb-2"
-      />
-      {uploading && <div>Processing...</div>}
+      
+      <div className="flex items-center gap-2 mb-4">
+        <input
+          type="file"
+          accept=".csv"
+          multiple
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          disabled={uploading}
+          className="mb-2"
+        />
+        
+        <button
+          onClick={handleProcessAllFiles}
+          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:opacity-50"
+          disabled={uploading}
+        >
+          Process All Files
+        </button>
+        
+        {processedFileCount > 0 && (
+          <>
+            <button
+              onClick={() => setShowConfirm(true)}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
+              disabled={uploading}
+            >
+              Save All Trades
+            </button>
+            <button
+              onClick={handleReset}
+              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 disabled:opacity-50"
+              disabled={uploading}
+            >
+              Reset Data
+            </button>
+          </>
+        )}
+      </div>
+      
+      {/* Add helpful information about file processing */}
+      <div className="mb-4 text-sm bg-blue-50 dark:bg-blue-900 p-3 rounded-md">
+        <p><strong>Tip:</strong> When processing multiple files, the system will match open positions from previous files with closing trades in new files. 
+          For best results, upload files in chronological order or use "Process All Files" which will attempt to sort files by date.</p>
+      </div>
+      
+      {processedFileCount > 0 && (
+        <div className="mb-2 text-sm">
+          <span className="font-semibold">{processedFileCount}</span> file{processedFileCount !== 1 ? 's' : ''} processed. 
+          Total trades: <span className="font-semibold">{allMatched.length}</span>
+          {processedFileCount > 1 && matchedPreviousOpenCount > 0 && (
+            <span className="ml-1">(including <span className="font-semibold text-green-600 dark:text-green-400">{matchedPreviousOpenCount}</span> trades matched with previously open positions)</span>
+          )}
+        </div>
+      )}
+      
+      {message && (
+        <div className="mb-4">
+          <p className="text-green-600">{message}</p>
+        </div>
+      )}
+      
+      {uploading && (
+        <div className="mb-4">
+          <p className="mb-2">Processing...</p>
+          <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+            <div 
+              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-in-out" 
+              style={{ width: `${processingProgress}%` }}
+            ></div>
+          </div>
+        </div>
+      )}
+      
+      {matched && matched.length > 0 && (
+        <div className="mb-4">
+          <div 
+            className="flex items-center justify-between cursor-pointer bg-gray-100 dark:bg-gray-700 p-2 rounded-t border border-b-0"
+            onClick={() => setMatchedTradesPreviewCollapsed(!matchedTradesPreviewCollapsed)}
+          >
+            <h2 className="text-lg font-semibold">Matched Trades Preview ({matched.length})</h2>
+            <span>{matchedTradesPreviewCollapsed ? '▼' : '▲'}</span>
+          </div>
+          
+          {!matchedTradesPreviewCollapsed && (
+            <table className="min-w-full border text-black dark:text-white">
+              <thead>
+                <tr className="bg-gray-100 dark:bg-gray-700">
+                  <th className="border p-2">Open Date</th>
+                  <th className="border p-2">Close Date</th>
+                  <th className="border p-2">Symbol</th>
+                  <th className="border p-2">Underlying Symbol</th>
+                  <th className="border p-2">Quantity</th>
+                  <th className="border p-2">Open Price</th>
+                  <th className="border p-2">Close Price</th>
+                  <th className="border p-2">P/L</th>
+                  <th className="border p-2">Commissions</th>
+                  <th className="border p-2">Fees</th>
+                  <th className="border p-2">Account</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMatched.map((trade, index) => (
+                  <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'}>
+                    <td className="border p-2">{trade.open_date}</td>
+                    <td className="border p-2">{trade.close_date}</td>
+                    <td className="border p-2">{trade.symbol}</td>
+                    <td className="border p-2">{trade.underlying_symbol}</td>
+                    <td className="border p-2">{trade.quantity}</td>
+                    <td className="border p-2">${typeof trade.open_price === 'number' ? trade.open_price.toFixed(2) : '0.00'}</td>
+                    <td className="border p-2">${typeof trade.close_price === 'number' ? trade.close_price.toFixed(2) : '0.00'}</td>
+                    <td className={`border p-2 ${trade.profit_loss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      ${typeof trade.profit_loss === 'number' ? trade.profit_loss.toFixed(2) : '0.00'}
+                    </td>
+                    <td className="border p-2 text-red-600 dark:text-red-400">${typeof trade.commissions === 'number' ? trade.commissions.toFixed(2) : '0.00'}</td>
+                    <td className="border p-2 text-red-600 dark:text-red-400">${typeof trade.fees === 'number' ? trade.fees.toFixed(2) : '0.00'}</td>
+                    <td className="border p-2">{trade.account}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+      
+      {remainingOpen && remainingOpen.length > 0 && (
+        <div className="mb-4">
+          <div 
+            className="flex items-center justify-between cursor-pointer bg-gray-100 dark:bg-gray-700 p-2 rounded-t border border-b-0"
+            onClick={() => setOpenTradesCollapsed(!openTradesCollapsed)}
+          >
+            <h2 className="text-lg font-semibold">Remaining Open Trades Preview ({remainingOpen.length})</h2>
+            <span>{openTradesCollapsed ? '▼' : '▲'}</span>
+          </div>
+          
+          {!openTradesCollapsed && (
+            <table className="min-w-full border text-black dark:text-white">
+              <thead>
+                <tr className="bg-gray-100 dark:bg-gray-700">
+                  <th className="border p-2">Date</th>
+                  <th className="border p-2">Symbol</th>
+                  <th className="border p-2">Underlying Symbol</th>
+                  <th className="border p-2">Quantity</th>
+                  <th className="border p-2">Average Price</th>
+                  <th className="border p-2">Value</th>
+                  <th className="border p-2">Commissions</th>
+                  <th className="border p-2">Fees</th>
+                  <th className="border p-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRemainingOpen.map((trade, index) => (
+                  <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'}>
+                    <td className="border p-2">{trade.Date}</td>
+                    <td className="border p-2">{trade.Symbol}</td>
+                    <td className="border p-2">{trade['Underlying Symbol']}</td>
+                    <td className="border p-2">{trade.remainingQty}</td>
+                    <td className="border p-2">{trade['Average Price']}</td>
+                    <td className="border p-2">{trade.Value}</td>
+                    <td className="border p-2 text-red-600 dark:text-red-400">{trade.Commissions}</td>
+                    <td className="border p-2 text-red-600 dark:text-red-400">{trade.Fees}</td>
+                    <td className="border p-2">
+                      {trade.isPreviouslyOpen ? 
+                        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">From previous file</span> : 
+                        <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">New</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+      
+      {showConfirm && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full">
+            <h2 className="text-lg font-semibold mb-4">Confirm Upload</h2>
+            <p className="mb-4">You have matched {allMatched.length} trades across {processedFileCount} files. Do you want to upload these trades?</p>
+            
+            <div className="flex justify-end">
+              <button
+                onClick={handleConfirm}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md mr-2"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={handleCancel}
+                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {allMatched.length > 0 && (
+        <div className="mt-4">
+          <div 
+            className="flex items-center justify-between cursor-pointer bg-gray-100 dark:bg-gray-700 p-2 rounded-t border border-b-0"
+            onClick={() => setSummaryCollapsed(!summaryCollapsed)}
+          >
+            <h2 className="text-lg font-semibold">Summary by Underlying Symbol ({summaryByUnderlying.length})</h2>
+            <span>{summaryCollapsed ? '▼' : '▲'}</span>
+          </div>
+          
+          {!summaryCollapsed && (
+            <table className="min-w-full border text-black dark:text-white">
+              <thead>
+                <tr className="bg-gray-100 dark:bg-gray-700">
+                  <th className="border p-2">Underlying Symbol</th>
+                  <th className="border p-2">Realized P/L</th>
+                  <th className="border p-2">Commissions</th>
+                  <th className="border p-2">Fees</th>
+                  <th className="border p-2">Unrealized P/L</th>
+                  <th className="border p-2">Total P/L</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summaryByUnderlying.map((row, idx) => (
+                  <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}>
+                    <td className="border p-2">{row.underlying_symbol}</td>
+                    <td className={`border p-2 ${row.realized >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      ${row.realized.toFixed(2)}
+                    </td>
+                    <td className="border p-2 text-red-600 dark:text-red-400">
+                      ${row.commissions.toFixed(2)}
+                    </td>
+                    <td className="border p-2 text-red-600 dark:text-red-400">
+                      ${row.fees.toFixed(2)}
+                    </td>
+                    <td className={`border p-2 ${row.unrealized >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      ${row.unrealized.toFixed(2)}
+                    </td>
+                    <td className={`border p-2 font-semibold ${row.realized + row.commissions + row.fees >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      ${(row.realized + row.commissions + row.fees).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+                {/* Add a total row */}
+                <tr className="bg-gray-200 dark:bg-gray-600 font-bold text-black dark:text-white">
+                  <td className="border p-2">TOTAL</td>
+                  <td className={`border p-2 ${summaryByUnderlying.reduce((sum, row) => sum + row.realized, 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    ${summaryByUnderlying.reduce((sum, row) => sum + row.realized, 0).toFixed(2)}
+                  </td>
+                  <td className="border p-2 text-red-600 dark:text-red-400">
+                    ${summaryByUnderlying.reduce((sum, row) => sum + row.commissions, 0).toFixed(2)}
+                  </td>
+                  <td className="border p-2 text-red-600 dark:text-red-400">
+                    ${summaryByUnderlying.reduce((sum, row) => sum + row.fees, 0).toFixed(2)}
+                  </td>
+                  <td className={`border p-2 ${summaryByUnderlying.reduce((sum, row) => sum + row.unrealized, 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    ${summaryByUnderlying.reduce((sum, row) => sum + row.unrealized, 0).toFixed(2)}
+                  </td>
+                  <td className={`border p-2 ${summaryByUnderlying.reduce((sum, row) => sum + row.realized + row.commissions + row.fees, 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    ${summaryByUnderlying.reduce((sum, row) => sum + row.realized + row.commissions + row.fees, 0).toFixed(2)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+      
       {message && <div className="mt-2 text-sm">{message}</div>}
       
-      {showConfirm && matched && (
+      {(showConfirm || processedFileCount > 0) && allMatched.length > 0 && (
         <div className="mt-4">
           <div className="flex gap-4 mb-4">
             <input
@@ -299,156 +836,57 @@ export default function UploadTrades() {
               onChange={e => setDateFilter(e.target.value)}
             />
           </div>
-          <h3 className="font-semibold mb-2">Matched Trades</h3>
-          <table className="min-w-full border text-black dark:text-white mb-8">
-            <thead>
-              <tr className="bg-gray-100 dark:bg-gray-700">
-                <th className="border p-2">Symbol</th>
-                <th className="border p-2">Underlying</th>
-                <th className="border p-2">Open Date</th>
-                <th className="border p-2">Close Date</th>
-                <th className="border p-2">Quantity</th>
-                <th className="border p-2">Open Price</th>
-                <th className="border p-2">Close Price</th>
-                <th className="border p-2">P/L</th>
-                <th className="border p-2">Commissions</th>
-                <th className="border p-2">Fees</th>
-                <th className="border p-2">Account</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredMatched.map((trade, idx) => (
-                <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}>
-                  <td className="border p-2">{trade.symbol}</td>
-                  <td className="border p-2">{trade.underlying_symbol}</td>
-                  <td className="border p-2">{trade.open_date}</td>
-                  <td className="border p-2">{trade.close_date || 'Open'}</td>
-                  <td className="border p-2">{trade.quantity}</td>
-                  <td className="border p-2">${typeof trade.open_price === 'number' ? trade.open_price.toFixed(2) : '0.00'}</td>
-                  <td className="border p-2">
-                    {trade.close_price !== undefined && trade.close_price !== null && Number(trade.close_price) !== 0
-                      ? `$${Number(trade.close_price).toFixed(2)}` 
-                      : '$0.00'}
-                  </td>
-                  <td className="border p-2">${typeof trade.profit_loss === 'number' ? trade.profit_loss.toFixed(2) : '0.00'}</td>
-                  <td className="border p-2 text-red-600">${typeof trade.commissions === 'number' ? trade.commissions.toFixed(2) : '0.00'}</td>
-                  <td className="border p-2 text-red-600">${typeof trade.fees === 'number' ? trade.fees.toFixed(2) : '0.00'}</td>
-                  <td className="border p-2">{trade.account}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {remainingOpen && filteredRemainingOpen.length > 0 && (
-            <>
-              <h3 className="font-semibold mb-2">Remaining Open Trades</h3>
-              <table className="min-w-full border text-black dark:text-white mb-8">
-                <thead>
-                  <tr className="bg-gray-100 dark:bg-gray-700">
-                    <th className="border p-2">Symbol</th>
-                    <th className="border p-2">Underlying</th>
-                    <th className="border p-2">Open Date</th>
-                    <th className="border p-2">Quantity</th>
-                    <th className="border p-2">Open Price</th>
-                    <th className="border p-2">Account</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRemainingOpen.map((trade, idx) => (
-                    <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}>
-                      <td className="border p-2">{trade.Symbol}</td>
-                      <td className="border p-2">{trade['Underlying Symbol']}</td>
-                      <td className="border p-2">{trade.Date}</td>
-                      <td className="border p-2">{trade.remainingQty}</td>
-                      <td className="border p-2">
-                        ${trade['Average Price'] && trade['Average Price'] !== '--' 
-                          ? parseFloat(trade['Average Price']).toFixed(2) 
-                          : '0.00'}
-                      </td>
-                      <td className="border p-2">{trade.Account}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
           
-          {/* Summary Table by Underlying Symbol */}
-          {summaryByUnderlying.length > 0 && (
-            <>
-              <h3 className="font-semibold mb-2">P/L Summary by Underlying Symbol</h3>
-              <table className="min-w-full border text-black dark:text-white mb-8">
-                <thead>
-                  <tr className="bg-gray-100 dark:bg-gray-700">
-                    <th className="border p-2">Underlying Symbol</th>
-                    <th className="border p-2">Realized P/L</th>
-                    <th className="border p-2">Commissions</th>
-                    <th className="border p-2">Fees</th>
-                    <th className="border p-2">Unrealized P/L</th>
-                    <th className="border p-2">Total P/L</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {summaryByUnderlying.map((row, idx) => (
-                    <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}>
-                      <td className="border p-2">{row.underlying_symbol}</td>
-                      <td className={`border p-2 ${row.realized >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        ${row.realized.toFixed(2)}
-                      </td>
-                      <td className="border p-2 text-red-600">
-                        ${row.commissions.toFixed(2)}
-                      </td>
-                      <td className="border p-2 text-red-600">
-                        ${row.fees.toFixed(2)}
-                      </td>
-                      <td className={`border p-2 ${row.unrealized >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        ${row.unrealized.toFixed(2)}
-                      </td>
-                      <td className={`border p-2 font-semibold ${row.realized + row.commissions + row.fees >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        ${(row.realized + row.commissions + row.fees).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                  {/* Add a total row */}
-                  <tr className="bg-gray-200 dark:bg-gray-600 font-bold">
-                    <td className="border p-2">TOTAL</td>
-                    <td className={`border p-2 ${summaryByUnderlying.reduce((sum, row) => sum + row.realized, 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ${summaryByUnderlying.reduce((sum, row) => sum + row.realized, 0).toFixed(2)}
-                    </td>
-                    <td className="border p-2 text-red-600">
-                      ${summaryByUnderlying.reduce((sum, row) => sum + row.commissions, 0).toFixed(2)}
-                    </td>
-                    <td className="border p-2 text-red-600">
-                      ${summaryByUnderlying.reduce((sum, row) => sum + row.fees, 0).toFixed(2)}
-                    </td>
-                    <td className={`border p-2 ${summaryByUnderlying.reduce((sum, row) => sum + row.unrealized, 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ${summaryByUnderlying.reduce((sum, row) => sum + row.unrealized, 0).toFixed(2)}
-                    </td>
-                    <td className={`border p-2 ${summaryByUnderlying.reduce((sum, row) => sum + row.realized + row.commissions + row.fees, 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ${summaryByUnderlying.reduce((sum, row) => sum + row.realized + row.commissions + row.fees, 0).toFixed(2)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </>
-          )}
-          
-          <div className="mt-4 space-x-4">
-            <button
-              onClick={handleSave}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
-              disabled={uploading}
-            >
-              {uploading ? 'Saving...' : 'Save Trades'}
-            </button>
-            <button
-              onClick={handleCancel}
-              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 disabled:opacity-50"
-              disabled={uploading}
-            >
-              Cancel
-            </button>
+          <div 
+            className="flex items-center justify-between cursor-pointer bg-gray-100 dark:bg-gray-700 p-2 rounded-t border border-b-0"
+            onClick={() => setMatchedTradesCollapsed(!matchedTradesCollapsed)}
+          >
+            <h3 className="font-semibold">Matched Trades ({filteredMatched.length})</h3>
+            <span>{matchedTradesCollapsed ? '▼' : '▲'}</span>
           </div>
+          
+          {!matchedTradesCollapsed && (
+            <table className="min-w-full border text-black dark:text-white mb-8">
+              <thead>
+                <tr className="bg-gray-100 dark:bg-gray-700">
+                  <th className="border p-2">Symbol</th>
+                  <th className="border p-2">Underlying</th>
+                  <th className="border p-2">Open Date</th>
+                  <th className="border p-2">Close Date</th>
+                  <th className="border p-2">Quantity</th>
+                  <th className="border p-2">Open Price</th>
+                  <th className="border p-2">Close Price</th>
+                  <th className="border p-2">P/L</th>
+                  <th className="border p-2">Commissions</th>
+                  <th className="border p-2">Fees</th>
+                  <th className="border p-2">Account</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMatched.map((trade, idx) => (
+                  <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}>
+                    <td className="border p-2">{trade.symbol}</td>
+                    <td className="border p-2">{trade.underlying_symbol}</td>
+                    <td className="border p-2">{trade.open_date}</td>
+                    <td className="border p-2">{trade.close_date || 'Open'}</td>
+                    <td className="border p-2">{trade.quantity}</td>
+                    <td className="border p-2">${typeof trade.open_price === 'number' ? trade.open_price.toFixed(2) : '0.00'}</td>
+                    <td className="border p-2">
+                      {trade.close_price !== undefined && trade.close_price !== null && Number(trade.close_price) !== 0
+                        ? `$${Number(trade.close_price).toFixed(2)}` 
+                        : '$0.00'}
+                    </td>
+                    <td className={`border p-2 ${typeof trade.profit_loss === 'number' && trade.profit_loss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      ${typeof trade.profit_loss === 'number' ? trade.profit_loss.toFixed(2) : '0.00'}
+                    </td>
+                    <td className="border p-2 text-red-600 dark:text-red-400">${typeof trade.commissions === 'number' ? trade.commissions.toFixed(2) : '0.00'}</td>
+                    <td className="border p-2 text-red-600 dark:text-red-400">${typeof trade.fees === 'number' ? trade.fees.toFixed(2) : '0.00'}</td>
+                    <td className="border p-2">{trade.account}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
     </div>

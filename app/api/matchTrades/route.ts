@@ -3,8 +3,8 @@ import { matchTrades } from '@/services/upload';
 
 export async function POST(req: NextRequest) {
   try {
-    const trades = await req.json();
-    const { matched, remainingOpenTrades } = await matchTrades(trades);
+    const { trades, previousOpenTrades = [] } = await req.json();
+    const { matched, remainingOpenTrades } = await matchTrades(trades, undefined, previousOpenTrades);
     return NextResponse.json({ matched, remainingOpenTrades });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Failed to match trades.' }, { status: 500 });
