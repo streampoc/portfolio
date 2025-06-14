@@ -36,68 +36,71 @@ export default function UploadTrades() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [remainingOpen, setRemainingOpen] = useState<any[] | null>(null);
   const [fileCount, setFileCount] = useState<number>(0);
-  
-  // Quick filter states
-  const [symbolFilter, setSymbolFilter] = useState('');
-  const [underlyingFilter, setUnderlyingFilter] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
-
-  // Add a new state for accumulating trades
+  const [processedFileCount, setProcessedFileCount] = useState<number>(0);
   const [allMatched, setAllMatched] = useState<MatchedTrade[]>([]);
   const [allRemainingOpen, setAllRemainingOpen] = useState<any[]>([]);
-  
-  // Add a count of processed files
-  const [processedFileCount, setProcessedFileCount] = useState<number>(0);
-  
-  // Add a new state for tracking matched previous open trades
   const [matchedPreviousOpenCount, setMatchedPreviousOpenCount] = useState<number>(0);
-  
-  // Add state for tracking progress
   const [processingProgress, setProcessingProgress] = useState<number>(0);
   
-  // Add state for collapsible tables
+  // Quick filter states
+  const [symbolFilter, setSymbolFilter] = useState<string>('');
+  const [underlyingFilter, setUnderlyingFilter] = useState<string>('');
+  const [dateFilter, setDateFilter] = useState<string>('');
+  const [yearFilter, setYearFilter] = useState<string>('All Years');
   const [summaryCollapsed, setSummaryCollapsed] = useState<boolean>(false);
   const [matchedTradesPreviewCollapsed, setMatchedTradesPreviewCollapsed] = useState<boolean>(false);
   const [matchedTradesCollapsed, setMatchedTradesCollapsed] = useState<boolean>(false);
   const [openTradesCollapsed, setOpenTradesCollapsed] = useState<boolean>(false);
   
-  // Compute filtered trades for preview using all matched trades
+  // Years array for the dropdown
+  const availableYears = useMemo(() => ['All Years', ...Array.from({ length: 20 }, (_, i) => (2015 + i).toString())], []);
+
+  // Compute filtered trades for preview using matched trades
   const filteredMatched = useMemo(() => {
-    // Return empty array if no matched trades
-    if (!allMatched || allMatched.length === 0) return [];
+    if (!matched || matched.length === 0) return [];
     
-    return allMatched.filter(trade => {
-      const symbol = trade.symbol?.replace(/\s+/g, '').toLowerCase() || '';
+    return matched.filter(trade => {
+      const symbol = (trade.symbol || '').replace(/\s+/g, '').toLowerCase();
       const filterSymbol = symbolFilter.replace(/\s+/g, '').toLowerCase();
-      const underlying = trade.underlying_symbol?.toLowerCase() || '';
-      const dateStr = `${trade.open_date || ''} ${trade.close_date || ''}`.toLowerCase();
+      const underlying = (trade.underlying_symbol || '').toLowerCase();
+      
+      // Get the year from the close date if available
+      const tradeYear = trade.close_date ? 
+        new Date(trade.close_date).getFullYear().toString() : 
+        new Date(trade.open_date).getFullYear().toString();
+        
       return (
         (!symbolFilter || symbol.includes(filterSymbol)) &&
         (!underlyingFilter || underlying.includes(underlyingFilter.toLowerCase())) &&
-        (!dateFilter || dateStr.includes(dateFilter.toLowerCase()))
+        (!dateFilter || trade.open_date.toLowerCase().includes(dateFilter.toLowerCase())) &&
+        (yearFilter === 'All Years' || tradeYear === yearFilter)
       );
     });
-  }, [allMatched, symbolFilter, underlyingFilter, dateFilter]);
+  }, [matched, symbolFilter, underlyingFilter, dateFilter, yearFilter]);
 
-  // Compute filtered remaining open trades for preview using all open trades
+  // Compute filtered remaining open trades
   const filteredRemainingOpen = useMemo(() => {
-    // Return empty array if no remaining open trades
-    if (!allRemainingOpen || allRemainingOpen.length === 0) return [];
+    if (!remainingOpen || remainingOpen.length === 0) return [];
     
-    return allRemainingOpen.filter(trade => {
+    return remainingOpen.filter(trade => {
       const symbol = (trade.Symbol || '').replace(/\s+/g, '').toLowerCase();
       const filterSymbol = symbolFilter.replace(/\s+/g, '').toLowerCase();
       const underlying = (trade['Underlying Symbol'] || '').toLowerCase();
-      const dateStr = `${trade.Date || ''}`.toLowerCase();
+      const dateStr = (trade.Date || '').toLowerCase();
+      
+      // Get the year from the trade date
+      const tradeYear = trade.Date ? new Date(trade.Date).getFullYear().toString() : '';
+        
       return (
         (!symbolFilter || symbol.includes(filterSymbol)) &&
         (!underlyingFilter || underlying.includes(underlyingFilter.toLowerCase())) &&
-        (!dateFilter || dateStr.includes(dateFilter.toLowerCase()))
+        (!dateFilter || dateStr.includes(dateFilter.toLowerCase())) &&
+        (yearFilter === 'All Years' || tradeYear === yearFilter)
       );
     });
-  }, [allRemainingOpen, symbolFilter, underlyingFilter, dateFilter]);
+  }, [remainingOpen, symbolFilter, underlyingFilter, dateFilter, yearFilter]);
 
-  // Calculate P/L summary by underlying symbol using all accumulated trades
+  // Calculate P/L summary by underlying symbol using filtered trades
   const summaryByUnderlying = useMemo(() => {
     const summary = new Map<string, SummaryRow>();
     
@@ -175,9 +178,9 @@ export default function UploadTrades() {
       });
     }
     
-    // Convert Map to array and sort by total P/L
+    // Convert Map to array and sort by underlying symbol
     return Array.from(summary.values())
-      .sort((a, b) => ((b.realized + b.commissions + b.fees) - (a.realized + a.commissions + a.fees)));
+      .sort((a, b) => a.underlying_symbol.localeCompare(b.underlying_symbol));
   }, [filteredMatched, filteredRemainingOpen]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -747,7 +750,19 @@ export default function UploadTrades() {
             className="flex items-center justify-between cursor-pointer bg-gray-100 dark:bg-gray-700 p-2 rounded-t border border-b-0"
             onClick={() => setSummaryCollapsed(!summaryCollapsed)}
           >
-            <h2 className="text-lg font-semibold">Summary by Underlying Symbol ({summaryByUnderlying.length})</h2>
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-semibold">Summary by Underlying Symbol ({summaryByUnderlying.length})</h2>
+              <select
+                className="px-2 py-1 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600"
+                value={yearFilter}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setYearFilter(e.target.value)}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()} // Prevent collapsing when clicking the dropdown
+              >
+                {availableYears.map((year: string) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
             <span>{summaryCollapsed ? '▼' : '▲'}</span>
           </div>
           
@@ -835,6 +850,16 @@ export default function UploadTrades() {
               value={dateFilter}
               onChange={e => setDateFilter(e.target.value)}
             />
+            <select
+              value={yearFilter}
+              onChange={e => setYearFilter(e.target.value)}
+              className="border p-2 rounded"
+            >
+              {/* Years array for the dropdown */}
+              {['All Years', ...Array.from({ length: 20 }, (_, i) => (2015 + i).toString())].map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
           </div>
           
           <div 
