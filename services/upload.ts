@@ -39,22 +39,46 @@ function preprocessTrade(trade: any) {
       const hasSpecialSymbol = normalizedTrade.Symbol && (
         normalizedTrade.Symbol.includes('SPXW') || normalizedTrade.Symbol.includes('NDXP')
       );
+
+      // Handle both removal and cash settlement entries
+      if (normalizedTrade.Description) {
+        // Set flags and store relevant information without returning early
+        if (normalizedTrade.Description.includes("Cash settlement")) {
+          normalizedTrade.isCashSettlement = true;
+          normalizedTrade.ActionNorm = 'CLOSE';
+          normalizedTrade.Action = 'CLOSE';
+          normalizedTrade.closePrice = parseNumber(normalizedTrade['Average Price']);
+        }
+        if (normalizedTrade.Description.includes("Removal of option")) {
+          normalizedTrade.isRemoval = true;
+          normalizedTrade.ActionNorm = 'CLOSE';
+          normalizedTrade.Action = 'CLOSE';
+        }
+        if (normalizedTrade.Description.includes("assignment") ||
+            normalizedTrade.Description.includes("exercise")) {
+          normalizedTrade.ActionNorm = 'CLOSE';
+          normalizedTrade.Action = 'CLOSE';
+        }
+      }
       
-      const hasSpecialDesc = normalizedTrade.Description && (
-        (!normalizedTrade.Description.includes("Removal of option") || 
-          normalizedTrade.Description.includes("Cash settlement"))
-      );
-      
-      const hasStandardDesc = normalizedTrade.Description && (
-        normalizedTrade.Description.includes("assignment") || 
-        normalizedTrade.Description.includes("expiration") || 
-        normalizedTrade.Description.includes("exercise")
-      );
-      
-      // Apply rule based on symbol and description
-      if ((hasSpecialSymbol && hasSpecialDesc) || 
-          (!hasSpecialSymbol && hasStandardDesc)) {
-        normalizedTrade.Action = 'SELL_TO_CLOSE';
+      // If none of the above conditions matched, check other cases
+      if (!normalizedTrade.Action) {
+        const hasSpecialDesc = normalizedTrade.Description && (
+          (!normalizedTrade.Description.includes("Removal of option") || 
+            normalizedTrade.Description.includes("Cash settlement"))
+        );
+        
+        const hasStandardDesc = normalizedTrade.Description && (
+          normalizedTrade.Description.includes("assignment") || 
+          normalizedTrade.Description.includes("expiration") || 
+          normalizedTrade.Description.includes("exercise")
+        );
+        
+        if ((hasSpecialSymbol && hasSpecialDesc) || 
+            (!hasSpecialSymbol && hasStandardDesc)) {
+          normalizedTrade.Action = 'CLOSE';
+          normalizedTrade.ActionNorm = 'CLOSE';
+        }
       }
     }
   }
@@ -120,65 +144,197 @@ function preprocessTrade(trade: any) {
   return normalizedTrade;
 }
 
+interface Trade {
+  Date: string;
+  Symbol: string;
+  'Underlying Symbol'?: string;
+  Action?: string;
+  Quantity: string | number;
+  'Average Price': string | number;
+  'Instrument Type'?: string;
+  'Strike Price'?: string | number;
+  'Expiration Date'?: string;
+  'Call or Put'?: string;
+  Type?: string;
+  Account?: string;
+  Value?: string | number;
+  Commissions?: string | number;
+  Fees?: string | number;
+  Description?: string;
+}
+
+function generateGroupKey(trade: Trade): string {
+  const parts = [
+    trade.Date,
+    trade.Symbol?.replace(/\s+/g, ''),
+    trade.Action,
+    trade['Instrument Type'],
+    trade['Strike Price'],
+    trade['Expiration Date'],
+    trade['Call or Put']
+  ];
+  return parts.filter(Boolean).join('|');
+}
+
+function areDuplicateTrades(trade1: Trade, trade2: Trade): boolean {
+  return (
+    trade1.Quantity === trade2.Quantity &&
+    trade1['Average Price'] === trade2['Average Price'] &&
+    trade1.Account === trade2.Account &&
+    Math.abs(new Date(trade1.Date).getTime() - new Date(trade2.Date).getTime()) <= 1000
+  );
+}
+
 export async function matchTrades(trades: any[], debugLogs?: string[], previousOpenTrades: any[] = []) {
   // Preprocess trades with enhanced rules
-  const preprocessedTrades = trades.map(trade => preprocessTrade(trade));
+  const preprocessedTrades = trades.map(trade => {
+    const processed = preprocessTrade(trade);
+    // Special handling for cash settlements and removals
+    if (processed.Type === 'Receive Deliver') {
+      if (processed.Description && processed.Description.includes("Cash settlement")) {
+        processed.isCashSettlement = true;
+        processed.ActionNorm = 'CLOSE';
+        processed.Action = 'CLOSE';
+        processed.closePrice = parseNumber(processed['Average Price']);
+        // Important: keep the original Average Price for proper matching
+        processed['Average Price'] = parseNumber(processed['Average Price']);
+      } else if (processed.Description && processed.Description.includes("Removal of option")) {
+        processed.isRemoval = true;
+        processed.ActionNorm = 'CLOSE';
+        processed.Action = 'CLOSE';
+      }
+      processed.Quantity = Math.abs(parseNumber(processed.Quantity));
+    }
+    return processed;
+  });
+
+  // Sort by date (oldest first) right after preprocessing
+  preprocessedTrades.sort((a, b) => {
+    const d1 = new Date(a.Date).getTime();
+    const d2 = new Date(b.Date).getTime();
+    return d1 - d2;
+  });
+
+  // Group trades by symbol and date to consolidate cash settlements with removals
+  const tradesBySymbolAndDate = new Map<string, any[]>();
   
-  // Debug log for commissions and fees
-  const sampleTrade = preprocessedTrades[0];
-  if (sampleTrade) {
-    console.log('Sample trade commissions and fees:', {
-      raw_commissions: sampleTrade.Commissions,
-      raw_fees: sampleTrade.Fees,
-      parsed_commissions: parseNumber(sampleTrade.Commissions),
-      parsed_fees: parseNumber(sampleTrade.Fees)
+  for (const trade of preprocessedTrades) {
+    if (!trade.Symbol) continue;
+    // Use exact timestamp for better matching
+    const key = `${trade.Symbol}-${trade.Date}`;
+    
+    if (!tradesBySymbolAndDate.has(key)) {
+      tradesBySymbolAndDate.set(key, []);
+    }
+    tradesBySymbolAndDate.get(key)!.push(trade);
+  }
+  
+  // Consolidate related trades
+  const consolidatedTrades: any[] = [];
+  for (const trades of tradesBySymbolAndDate.values()) {
+    const cashSettlement = trades.find(t => t.isCashSettlement);
+    const removal = trades.find(t => t.isRemoval);
+    
+    if (cashSettlement) {
+      // Always use cash settlement if it exists
+      consolidatedTrades.push({
+        ...cashSettlement,
+        ActionNorm: 'CLOSE',
+        Action: 'CLOSE',
+        Quantity: Math.abs(parseNumber(cashSettlement.Quantity)),
+        // Keep both the closing price and average price
+        closePrice: parseNumber(cashSettlement['Average Price']),
+        'Average Price': parseNumber(cashSettlement['Average Price'])
+      });
+    } else if (removal) {
+      // Use removal only if there's no cash settlement
+      consolidatedTrades.push({
+        ...removal,
+        ActionNorm: 'CLOSE',
+        Action: 'CLOSE',
+        Quantity: Math.abs(parseNumber(removal.Quantity))
+      });
+    } else {
+      // Add all other trades from this group
+      trades.forEach(t => consolidatedTrades.push(t));
+    }
+  }
+
+  // Group trades by date, action, symbol and underlying symbol for regular trade matching
+  const groupedTrades = new Map<string, any[]>();
+  
+  for (const trade of consolidatedTrades) {
+    const normalizedSymbol = trade.Symbol ? trade.Symbol.replace(/\s+/g, '') : '';
+    const normalizedUnderlying = trade['Underlying Symbol'] ? trade['Underlying Symbol'].replace(/\s+/g, '') : '';
+    const groupKey = `${trade.Date}-${normalizedSymbol}-${normalizedUnderlying}-${trade.Action}`;
+    
+    if (!groupedTrades.has(groupKey)) {
+      groupedTrades.set(groupKey, []);
+    }
+    // Important: preserve all trade properties
+    groupedTrades.get(groupKey)!.push({
+      ...trade,
+      Quantity: parseNumber(trade.Quantity),
+      'Average Price': parseNumber(trade['Average Price']),
+      'Commissions': parseNumber(trade.Commissions),
+      'Fees': parseNumber(trade.Fees),
+      closePrice: trade.closePrice // Preserve closing price if it exists
     });
   }
 
-  // Remove duplicates based on trade metadata
-  const uniqueTrades = preprocessedTrades.reduce((acc: any[], t: any) => {
-    // Normalize whitespace in symbol (safely handle undefined symbols)
-    const normalizedSymbol = t.Symbol ? t.Symbol.replace(/\s+/g, '') : '';
-    
-    // Generate a key that includes position identifier for closing trades
-    let tradeKey = `${t.Date}-${normalizedSymbol}-${t.Action}-${t.Quantity}-${t['Average Price']}-${t.Account}`;
-    
-    // For CLOSE trades, add a counter to allow multiple identical closes to match with a single open
-    if (t.Action && (t.Action.includes('TO_CLOSE') || (t.Type === 'Trade' && (t.Action === 'SELL' || t.Action === 'BUY')))) {
-      const existingCloses = acc.filter(x => 
-        x.Date === t.Date && 
-        (x.Symbol ? x.Symbol.replace(/\s+/g, '') : '') === normalizedSymbol && 
-        x.Action === t.Action && 
-        x.Quantity === t.Quantity && 
-        x['Average Price'] === t['Average Price'] && 
-        x.Account === t.Account
-      ).length;
-      tradeKey += `-${existingCloses}`;
+  // Combine trades within each group
+  const combinedTrades: any[] = [];
+  for (const [_, trades] of groupedTrades) {
+    if (trades.length === 1) {
+      combinedTrades.push(trades[0]);
+      continue;
     }
 
-    // Only add if not a true duplicate
-    if (!acc.find(x => {
-      const xSymbol = x.Symbol ? x.Symbol.replace(/\s+/g, '') : '';
-      const xKey = `${x.Date}-${xSymbol}-${x.Action}-${x.Quantity}-${x['Average Price']}-${x.Account}`;
-      return xKey === tradeKey;
-    })) {
-      acc.push(t);
-    } else {
-      debugLogs?.push(`Skipping duplicate trade: ${JSON.stringify(t)}`);
-    }
-    return acc;
-  }, []);
+    // Combine multiple trades with the same characteristics
+    const combined = { ...trades[0] };
+    let totalQuantity = 0;
+    let weightedPrice = 0;
+    let totalCommissions = 0;
+    let totalFees = 0;
 
-  // Normalize and generate contractKey for each trade 
-  const filtered = uniqueTrades.filter(t => t.Type === 'Trade' || t.Type === 'Receive Deliver').map(t => {
+    for (const trade of trades) {
+      totalQuantity += trade.Quantity;
+      weightedPrice += trade.Quantity * trade['Average Price'];
+      totalCommissions += trade.Commissions;
+      totalFees += trade.Fees;
+    }
+
+    combined.Quantity = totalQuantity;
+    combined['Average Price'] = weightedPrice / totalQuantity;
+    combined.Commissions = totalCommissions;
+    combined.Fees = totalFees;
+    combinedTrades.push(combined);
+  }
+
+  // Sort by date (oldest first)
+  combinedTrades.sort((a, b) => {
+    const d1 = new Date(a.Date).getTime();
+    const d2 = new Date(b.Date).getTime();
+    return d1 - d2;
+  });
+
+  // Normalize and generate contractKey for each trade
+  const filtered = combinedTrades.filter(t => 
+    t.Type === 'Trade' || 
+    t.Type === 'Receive Deliver' || 
+    t.isCashSettlement
+  ).map(t => {
     const norm: any = {};
     for (const k in t) {
       norm[k.trim()] = typeof t[k] === 'string' ? t[k].trim() : t[k];
     }
-    norm.Quantity = parseNumber(norm.Quantity);
-    norm['Average Price'] = parseNumber(norm['Average Price']);
-    norm['Commissions'] = parseNumber(norm['Commissions']);
-    norm['Fees'] = parseNumber(norm['Fees']);
+    
+    // Ensure we keep the cash settlement status and price
+    if (t.isCashSettlement) {
+      norm.isCashSettlement = true;
+      norm.closePrice = t.closePrice;
+    }
+
     // Normalize Action to 'OPEN' or 'CLOSE'
     if (norm.Action === 'BUY_TO_OPEN' || norm.Action === 'SELL_TO_OPEN' || norm.Action === 'BUY') {
       norm.ActionNorm = 'OPEN';
@@ -187,28 +343,22 @@ export async function matchTrades(trades: any[], debugLogs?: string[], previousO
       norm.Action === 'SELL_TO_CLOSE' || 
       norm.Action === 'SELL' ||
       norm.Type === 'Receive Deliver' ||
-      !norm.Action // treat empty Action as CLOSE
+      norm.isCashSettlement ||
+      !norm.Action
     ) {
       norm.ActionNorm = 'CLOSE';
     } else {
       norm.ActionNorm = norm.Action;
     }
+    
     // Generate contractKey for each row
     norm.contractKey = [
       norm.Symbol || '', 
       norm['Underlying Symbol'] || '', 
       norm['Call or Put'] || ''
     ].join('|');
-    norm.Account = t.Account; // Preserve account info
+    norm.Account = t.Account;
     return norm;
-  });
-
-  // Sort by contractKey, then by date (oldest first)
-  filtered.sort((a, b) => {
-    if (a.contractKey !== b.contractKey) return a.contractKey.localeCompare(b.contractKey);
-    const d1 = new Date(a.Date).getTime();
-    const d2 = new Date(b.Date).getTime();
-    return d1 - d2;
   });
 
   // Prepare a map of all open trades by contractKey (FIFO queue)
@@ -217,11 +367,8 @@ export async function matchTrades(trades: any[], debugLogs?: string[], previousO
 
   // First add previously open trades to the open map
   if (previousOpenTrades && previousOpenTrades.length > 0) {
-    console.log(`Processing ${previousOpenTrades.length} previously open trades`);
     for (const trade of previousOpenTrades) {
-      // Ensure the trade has the required properties
       if (trade && trade.Symbol && typeof trade.remainingQty === 'number' && trade.remainingQty > 0) {
-        // Generate the contractKey if it doesn't exist
         if (!trade.contractKey) {
           trade.contractKey = [
             trade.Symbol, 
@@ -229,29 +376,16 @@ export async function matchTrades(trades: any[], debugLogs?: string[], previousO
             trade['Call or Put'] || ''
           ].join('|');
         }
-        
-        // Mark this trade as previously open for tracking purposes
         trade.isPreviouslyOpen = true;
-        
         if (!openMap.has(trade.contractKey)) {
           openMap.set(trade.contractKey, []);
         }
-        
-        // Add to the open map with the remaining quantity
         openMap.get(trade.contractKey)!.push(trade);
-        
-        // Debug log for previously open trades
-        console.log(`Added previously open trade: ${JSON.stringify({
-          symbol: trade.Symbol,
-          underlying: trade['Underlying Symbol'] || '',
-          contractKey: trade.contractKey,
-          remainingQty: trade.remainingQty
-        })}`);
       }
     }
   }
 
-  // Then add new open trades from the current file
+  // Then add new open trades
   for (const trade of filtered) {
     if (trade.ActionNorm === 'OPEN') {
       if (!openMap.has(trade.contractKey)) openMap.set(trade.contractKey, []);
@@ -259,66 +393,41 @@ export async function matchTrades(trades: any[], debugLogs?: string[], previousO
     }
   }
 
-  // Now loop again and match all close trades to opens
+  // Now match all close trades to opens
   for (const trade of filtered) {
     try {
       if (trade.ActionNorm !== 'CLOSE') continue;
       const key = trade.contractKey;
-      let closeQty = Math.abs(trade.Quantity || 0); // Ensure positive quantity for comparison and handle undefined
+      let closeQty = Math.abs(trade.Quantity);
       
-      // Enhanced debug logging
-      console.log(`Matching close trade: Symbol=${trade.Symbol || 'undefined'}, Date=${trade.Date || 'undefined'}, Qty=${closeQty}, contractKey=${key}`);
       debugLogs?.push(`Matching close trade: ${JSON.stringify(trade)} | contractKey: ${key}`);
 
       while (closeQty > 0) {
         if (openMap.has(key) && openMap.get(key)!.length > 0) {
           const openTrade = openMap.get(key)![0];
-          const openQty = Math.abs(openTrade.remainingQty || 0); // Ensure positive quantity for comparison and handle undefined
+          const openQty = Math.abs(openTrade.remainingQty);
           const matchQty = Math.min(openQty, closeQty);
-          const openPrice = parseNumber(openTrade['Average Price']);
-          let closePrice = parseNumber(trade['Average Price']);
-          
-          // Check if this is a previously open trade that's being matched
-          const isPreviouslyOpen = openTrade.isPreviouslyOpen;
-          
-          if (isPreviouslyOpen) {
-            console.log(`Matched a previously open trade: ${JSON.stringify({
-              symbol: openTrade.Symbol || 'undefined',
-              openDate: openTrade.Date || 'undefined',
-              closeDate: trade.Date || 'undefined',
-              openQty,
-              closeQty: matchQty
-            })}`);
-          }
+          const openPrice = openTrade['Average Price'];
+          // For cash settlements, use the settlement price directly (with its sign)
+          const closePrice = trade.isCashSettlement ? trade.closePrice : trade['Average Price'];
 
-          // Calculate profit/loss properly using quantity, open_price, and close_price
+          // Keep existing profit/loss calculation which already handles signs correctly
           let profitLoss;
-          
-          // Special case for equities (symbol === underlying)
           if (openTrade.Symbol && openTrade['Underlying Symbol'] && openTrade.Symbol === openTrade['Underlying Symbol']) {
-            // For equities, we need to account for the direction of the trade
             const isBuyToOpen = openTrade.Action && (openTrade.Action.includes('BUY') || openTrade.Action === 'BUY_TO_OPEN');
             const isSellToClose = trade.Action && (trade.Action.includes('SELL') || trade.Action === 'SELL_TO_CLOSE');
             
             if (isBuyToOpen && isSellToClose) {
-              // Standard case: bought then sold
-              // For options, the prices already have the correct sign (negative for buys, positive for sells)
               profitLoss = (closePrice + openPrice) * matchQty;
             } else if (!isBuyToOpen && !isSellToClose) {
-              // Short case: sold short then bought to cover
-              // Similarly, for options, we're adding the already correctly signed values
               profitLoss = (openPrice + closePrice) * matchQty;
             } else {
-              // Fallback to using values if the direction is unclear
-              profitLoss = (openPrice + closePrice) * matchQty; //parseNumber(trade.Value) + parseNumber(openTrade.Value);
+              profitLoss = (closePrice + openPrice) * matchQty;
             }
           } else {
-            // For options and other instruments, simply add the values
-            // The prices already have the correct sign (negative for buys, positive for sells)
-            profitLoss = (openPrice + closePrice) * matchQty;//parseNumber(trade.Value) + parseNumber(openTrade.Value);
+            profitLoss = (closePrice + openPrice) * matchQty;
           }
 
-          // Create a unique key for this matched pair that includes the quantities
           const matchKey = `${key}-${openTrade.Date}-${trade.Date}-${matchQty}-${openPrice}-${closePrice}`;
           
           const matchedTrade = {
@@ -330,35 +439,32 @@ export async function matchTrades(trades: any[], debugLogs?: string[], previousO
             open_price: openPrice,
             close_price: closePrice,
             profit_loss: profitLoss,
-            commissions: parseNumber(openTrade['Commissions']) + parseNumber(trade['Commissions']),
-            fees: parseNumber(openTrade['Fees']) + parseNumber(trade['Fees']),
+            commissions: openTrade.Commissions + trade.Commissions,
+            fees: openTrade.Fees + trade.Fees,
             account: openTrade.Account
           };
 
           matchedTrades.set(matchKey, matchedTrade);
           
-          // Update remaining quantities
           openTrade.remainingQty -= matchQty;
           closeQty -= matchQty;
           
-          // Remove the open trade if it's fully matched
-          if (Math.abs(openTrade.remainingQty) < 0.000001) { // Use small epsilon for floating point comparison
+          if (Math.abs(openTrade.remainingQty) < 0.000001) {
             openMap.get(key)!.shift();
           }
         } else {
-          console.log(`No matching open trade found for: ${JSON.stringify({
+          debugLogs?.push(`No matching open trade found for: ${JSON.stringify({
             symbol: trade.Symbol,
             date: trade.Date,
             qty: closeQty,
             contractKey: key
           })}`);
-          closeQty = 0; // No matching open trade found, skip this close
+          closeQty = 0;
         }
       }
     } catch (error) {
       console.error(`Error matching trade: ${JSON.stringify(trade)}`, error);
       debugLogs?.push(`Error matching trade: ${JSON.stringify(trade)} - ${error}`);
-      // Continue processing other trades
     }
   }
 
@@ -367,23 +473,12 @@ export async function matchTrades(trades: any[], debugLogs?: string[], previousO
     return new Date(b.close_date).getTime() - new Date(a.close_date).getTime();
   });
 
-  // Debug log for matched trades commissions and fees
-  if (sortedTrades.length > 0) {
-    console.log('First matched trade commissions and fees:', {
-      commissions: sortedTrades[0].commissions,
-      fees: sortedTrades[0].fees,
-      commissions_type: typeof sortedTrades[0].commissions,
-      fees_type: typeof sortedTrades[0].fees
-    });
-  }
-
   // Collect remaining open trades
   const remainingOpenTrades: any[] = [];
   for (const opens of openMap.values()) {
     for (const open of opens) {
-      // Check if remainingQty exists and is greater than 0
       if (open && typeof open.remainingQty === 'number' && open.remainingQty > 0) {
-        open.Value = (parseNumber(open['Average Price']) * open.remainingQty).toFixed(2);
+        open.Value = (open['Average Price'] * open.remainingQty).toFixed(2);
         remainingOpenTrades.push(open);
       }
     }
