@@ -32,8 +32,56 @@ function preprocessTrade(trade: any) {
       normalizedTrade[key] = normalizedTrade[key].trim().replace(/\s+/g, ' ');
     }
   }
+
+  // Handle Money Movement transactions
+  if (normalizedTrade.Type === 'Money Movement') {
+    // Set common properties for all money movements
+    normalizedTrade.ActionNorm = 'MONEY';
+    normalizedTrade.Action = 'MONEY';
+
+    console.log('Processing Money Movement:', {
+      description: normalizedTrade.Description,
+      value: normalizedTrade.Value
+    });
+
+    // Handle different types of money movements
+    if (normalizedTrade['Instrument Type'] === 'Equity') {
+      // Dividends - set type to DIVIDEND to make it consistent
+      normalizedTrade['Underlying Symbol'] = 'DIVIDEND';  // Change this to be consistent
+      normalizedTrade.Symbol = normalizedTrade.Symbol || '';  // Keep original symbol
+    } else if (normalizedTrade['Instrument Type'] === 'Future') {
+      // Mark to Market
+      normalizedTrade.Symbol = 'MTM';
+    } else if (normalizedTrade.Description) {
+      if (normalizedTrade.Description.includes('FROM')) {
+        // Margin interest
+        normalizedTrade['Underlying Symbol'] = 'MARGIN';
+        normalizedTrade.Symbol = 'MARGIN';
+      } else if (normalizedTrade.Description.toUpperCase().includes('ACH')) {
+        // Fund deposits/withdrawals - explicitly handle ACH case
+        normalizedTrade['Underlying Symbol'] = 'FUNDS';
+        normalizedTrade.Symbol = 'FUNDS';
+        console.debug('[Money Movement] Found ACH transaction:', {
+          description: normalizedTrade.Description,
+          value: normalizedTrade.Value,
+          symbol: normalizedTrade.Symbol
+        });
+        console.log('Found ACH transaction:', {
+          description: normalizedTrade.Description,
+          value: normalizedTrade.Value,
+          symbol: normalizedTrade.Symbol,
+          underlyingSymbol: normalizedTrade['Underlying Symbol']
+        });
+      } else if (normalizedTrade.Description.includes('INTEREST ON CREDIT BALANCE') || 
+                 normalizedTrade.Description.includes('Regulatory fee adjustment')) {
+        // Interest and fee adjustments
+        normalizedTrade['Underlying Symbol'] = 'INTEREST';  
+        normalizedTrade.Symbol = 'INTEREST';
+      }
+    }
+  }
   
-  // Handle empty Action field
+  // Handle empty Action field for Receive Deliver
   if (!normalizedTrade.Action || normalizedTrade.Action.trim() === '') {
     if (normalizedTrade.Type === 'Receive Deliver') {
       const hasSpecialSymbol = normalizedTrade.Symbol && (
@@ -208,8 +256,62 @@ export async function matchTrades(trades: any[], debugLogs?: string[], previousO
     return processed;
   });
 
-  // Sort by date (oldest first) right after preprocessing
-  preprocessedTrades.sort((a, b) => {
+  // Separate money movements from regular trades
+  const moneyMovements: any[] = [];
+  const regularTrades = preprocessedTrades.filter(trade => {
+    if (trade.ActionNorm === 'MONEY') {
+      const movement = {
+        date: trade.Date,
+        symbol: trade.Symbol,
+        type: trade['Underlying Symbol'] || trade.Symbol || 'FUNDS', // Use the categorized type
+        amount: parseNumber(trade.Value),
+        description: trade.Description,
+        account: trade.Account
+      };
+      
+      // Enhanced logging for money movement creation and validation
+      console.log('[Money Movement] Creating new movement:', {
+        ...movement,
+        originalType: trade['Underlying Symbol'] || trade.Symbol,
+        isACH: (trade.Description || '').toUpperCase().includes('ACH'),
+        rawValue: trade.Value,
+        valid: (
+          movement.date && 
+          typeof movement.amount === 'number' && 
+          !isNaN(movement.amount)
+        )
+      });
+      
+      // Validate the movement before adding
+      if (movement.date && typeof movement.amount === 'number' && !isNaN(movement.amount)) {
+        moneyMovements.push(movement);
+      } else {
+        console.warn('[Money Movement] Skipping invalid movement:', movement);
+      }
+      return false;
+    }
+    return true;
+  });
+
+  // Debug - log detailed money movements summary
+  console.log('[Money Movement] Processing complete:', {
+    total: moneyMovements.length,
+    byType: {
+      FUNDS: moneyMovements.filter(m => m.type === 'FUNDS' || (m.description || '').toUpperCase().includes('ACH')).length,
+      DIVIDEND: moneyMovements.filter(m => m.type === 'DIVIDEND').length,
+      INTEREST: moneyMovements.filter(m => m.type === 'INTEREST').length,
+      MARGIN: moneyMovements.filter(m => m.type === 'MARGIN').length,
+      MTM: moneyMovements.filter(m => m.type === 'MTM').length
+    },
+    dateRange: {
+      earliest: new Date(Math.min(...moneyMovements.map(m => new Date(m.date).getTime()))).toISOString(),
+      latest: new Date(Math.max(...moneyMovements.map(m => new Date(m.date).getTime()))).toISOString()
+    }
+  });
+
+  // Process regular trades
+  // Sort by date (oldest first)
+  regularTrades.sort((a, b) => {
     const d1 = new Date(a.Date).getTime();
     const d2 = new Date(b.Date).getTime();
     return d1 - d2;
@@ -218,7 +320,7 @@ export async function matchTrades(trades: any[], debugLogs?: string[], previousO
   // Group trades by symbol and date to consolidate cash settlements with removals
   const tradesBySymbolAndDate = new Map<string, any[]>();
   
-  for (const trade of preprocessedTrades) {
+  for (const trade of regularTrades) {
     if (!trade.Symbol) continue;
     // Use exact timestamp for better matching
     const key = `${trade.Symbol}-${trade.Date}`;
@@ -490,5 +592,12 @@ export async function matchTrades(trades: any[], debugLogs?: string[], previousO
   });
   debugLogs?.push('==== END DEBUG ====');
 
-  return { matched: sortedTrades, remainingOpenTrades };
+  // Add money movements to the result
+  return { 
+    matched: sortedTrades, 
+    remainingOpenTrades,
+    moneyMovements: moneyMovements.sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    )
+  };
 }

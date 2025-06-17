@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, memo } from 'react';
 import Papa from 'papaparse';
+import MoneyMovementsSummary from '../MoneyMovements/MoneyMovementsSummary';
 
 type Trade = Record<string, string>;
 type MatchedTrade = {
@@ -27,6 +28,15 @@ type SummaryRow = {
   fees: number;
 };
 
+type MoneyMovement = {
+  date: string;
+  symbol: string;
+  type: string;
+  amount: number;
+  description: string;
+  account: string;
+};
+
 export default function UploadTrades() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -41,7 +51,36 @@ export default function UploadTrades() {
   const [allRemainingOpen, setAllRemainingOpen] = useState<any[]>([]);
   const [matchedPreviousOpenCount, setMatchedPreviousOpenCount] = useState<number>(0);
   const [processingProgress, setProcessingProgress] = useState<number>(0);
+  const [moneyMovements, setMoneyMovements] = useState<MoneyMovement[]>([]);
   
+  // Debug logging for money movements detail
+  const logMoneyMovements = (description: string, movements: MoneyMovement[] | undefined) => {
+    console.debug(`[Money Movements] ${description}:`, {
+      count: movements?.length || 0,
+      movements: movements?.map(m => ({
+        type: m.type,
+        description: m.description,
+        amount: m.amount,
+        isACH: (m.description || '').toUpperCase().includes('ACH'),
+        date: m.date
+      }))
+    });
+  };
+
+  // Money movement tracking functions
+  const logMoneyMovement = (description: string, movements: MoneyMovement[] | undefined) => {
+    console.debug(`[Money Movements] ${description}:`, {
+      count: movements?.length || 0,
+      movements: movements?.map(m => ({
+        type: m.type,
+        description: m.description,
+        amount: m.amount,
+        isACH: (m.description || '').toUpperCase().includes('ACH'),
+        date: m.date
+      }))
+    });
+  };
+
   // Quick filter states
   const [symbolFilter, setSymbolFilter] = useState<string>('');
   const [underlyingFilter, setUnderlyingFilter] = useState<string>('');
@@ -52,6 +91,70 @@ export default function UploadTrades() {
   const [matchedTradesCollapsed, setMatchedTradesCollapsed] = useState<boolean>(false);
   const [openTradesCollapsed, setOpenTradesCollapsed] = useState<boolean>(false);
   
+  // Calculate total amount for a specific type of money movement
+  const calculateTotalByType = (movements: MoneyMovement[], type: string) => {
+    if (!movements) {
+      console.debug(`[Money Movements] No movements array provided for type ${type}`);
+      return 0;
+    }
+
+    console.debug(`[Money Movements] Processing ${movements.length} movements for type ${type}`);
+
+    const matchingMovements = movements.filter(m => {
+      const movementType = (m.type || '').trim().toUpperCase();
+      const targetType = type.trim().toUpperCase();
+      const description = (m.description || '').toUpperCase();
+
+      // Special handling for ACH/Funds
+      if (targetType === 'FUNDS') {
+        const isMatch = movementType === 'FUNDS' || description.includes('ACH');
+        if (isMatch) {
+          console.debug('[Money Movements] Found matching FUNDS/ACH movement:', {
+            type: movementType,
+            description,
+            amount: m.amount,
+            date: m.date
+          });
+        }
+        return isMatch;
+      }
+
+      const isMatch = movementType === targetType;
+      if (isMatch) {
+        console.debug(`[Money Movements] Found matching ${type} movement:`, {
+          type: movementType,
+          description,
+          amount: m.amount,
+          date: m.date
+        });
+      }
+      return isMatch;
+    });
+
+    const total = matchingMovements.reduce((total, m) => total + m.amount, 0);
+    console.debug(`[Money Movements] Total for ${type}: ${total} (${matchingMovements.length} movements)`);
+
+    return total;
+  };
+
+  // Get transaction count for a specific type of money movement
+  const getTransactionCountByType = (movements: MoneyMovement[], type: string) => {
+    if (!movements) return 0;
+    
+    const targetType = type.trim().toUpperCase();
+    return movements.filter(m => {
+      const movementType = (m.type || '').trim().toUpperCase();
+      
+      // Match the same logic as calculateTotalByType
+      if (targetType === 'FUNDS') {
+        return movementType === 'FUNDS' || 
+               (m.description || '').toUpperCase().includes('ACH');
+      }
+      
+      return movementType === targetType;
+    }).length;
+  };
+
   // Years array for the dropdown
   const availableYears = useMemo(() => ['All Years', ...Array.from({ length: 20 }, (_, i) => (2015 + i).toString())], []);
 
@@ -108,14 +211,14 @@ export default function UploadTrades() {
     if (filteredMatched.length > 0) {
       // Debug log for commissions and fees
       if (filteredMatched.length > 0) {
-        console.log('Sample trade for summary calculation:', {
+/*         console.log('Sample trade for summary calculation:', {
           symbol: filteredMatched[0].symbol,
           profit_loss: filteredMatched[0].profit_loss,
           commissions: filteredMatched[0].commissions,
           fees: filteredMatched[0].fees,
           commissions_type: typeof filteredMatched[0].commissions,
           fees_type: typeof filteredMatched[0].fees
-        });
+        }); */
       }
       
       filteredMatched.forEach(trade => {
@@ -164,12 +267,12 @@ export default function UploadTrades() {
           row.unrealized += openPrice * quantity;
           
           // Log the calculation for debugging
-          console.log('Equity unrealized P/L calculation:', {
+          /* console.log('Equity unrealized P/L calculation:', {
             symbol: trade.Symbol,
             quantity,
             openPrice,
             calculated: openPrice * quantity
-          });
+          }); */
         } else {
           // For non-equity positions, use the Value field as before
           const value = parseFloat(trade.Value || '0');
@@ -209,23 +312,18 @@ export default function UploadTrades() {
             return trimmed;
           });
           
-          // Keep track of the raw rows for the current file
           setRawRows(trimmedTrades);
-
-          // Update progress
           setProcessingProgress(33);
 
-          // Call the API route to match trades, passing existing open trades
           const res = await fetch('/api/matchTrades', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               trades: trimmedTrades,
-              previousOpenTrades: allRemainingOpen // Pass all previously remaining open trades
+              previousOpenTrades: allRemainingOpen
             }),
           });
           
-          // Update progress
           setProcessingProgress(66);
           
           if (!res.ok) {
@@ -235,21 +333,29 @@ export default function UploadTrades() {
           
           const data = await res.json();
           
-          // Debug logging
-          if (data.matched && data.matched.length > 0) {
-            console.log('First 3 matched trades:', data.matched.slice(0, 3));
-            console.log('Sample commissions and fees:', data.matched.slice(0, 3).map((t: MatchedTrade) => ({
-              symbol: t.symbol,
-              commissions: t.commissions,
-              fees: t.fees,
-              commissions_type: typeof t.commissions,
-              fees_type: typeof t.fees
-            })));
-          }
+          // Debug logging for money movements
+          console.log('Money movements received:', {
+            count: data.moneyMovements?.length || 0,
+            movements: data.moneyMovements
+          });
           
+          // --- Consistent validation and sorting for money movements ---
+          const validMovements = (data.moneyMovements || []).filter((m: MoneyMovement) => {
+            const isValid = Boolean(m.date) && typeof m.amount === 'number' && !isNaN(m.amount);
+            if (!isValid) {
+              console.warn('[Money Movements] Filtering out invalid movement:', m);
+            }
+            return isValid;
+          });
+          const sortedMovements = [...validMovements].sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            return dateB - dateA;
+          });
+          // --- End consistent logic ---
+
           // Accumulate the matched trades
           const newMatched = [...allMatched, ...(data.matched || [])];
-          
           // Calculate how many previously open trades were matched
           // Only count matches from previously open trades if this isn't the first file
           const previousOpenTradesCount = allRemainingOpen.length;
@@ -274,7 +380,6 @@ export default function UploadTrades() {
             
             setMatchedPreviousOpenCount(prev => prev + matchedFromPrevious);
           }
-          
           // IMPORTANT: Replace all remaining open trades with the new list
           // This ensures open trades are correctly updated with each file
           const newRemainingOpen = data.remainingOpenTrades || [];
@@ -284,26 +389,17 @@ export default function UploadTrades() {
           setRemainingOpen(data.remainingOpenTrades);
           setAllMatched(newMatched);
           setAllRemainingOpen(newRemainingOpen);
-          
-          // Increment the processed file count
           setProcessedFileCount(prev => prev + 1);
-          
-          // Update progress to complete
           setProcessingProgress(100);
-          
-          // Don't show confirmation dialog automatically
-          // setShowConfirm(true);
-          
-          // Give user feedback
           const matchedMsg = (processedFileCount > 0 && matchedFromPrevious > 0)
             ? ` (including ${matchedFromPrevious} trades matched with previously open positions)` 
             : '';
-            
           const openPositionsMsg = newRemainingOpen.length > 0
             ? ` Currently tracking ${newRemainingOpen.length} open positions.`
             : '';
-          
           setMessage(`Processed ${file.name} successfully. ${data.matched?.length || 0} trades matched${matchedMsg}. Total: ${newMatched.length} trades from ${processedFileCount + 1} files.${openPositionsMsg}`);
+          // --- Move updateMoneyMovements to the end ---
+          updateMoneyMovements(sortedMovements);
         } catch (error) {
           setMessage('Error processing trades: ' + (error as Error).message);
           setProcessingProgress(0);
@@ -388,6 +484,7 @@ export default function UploadTrades() {
     setMatched(null);
     setRawRows(null);
     setProcessingProgress(0);
+    setMoneyMovements([]);
     setMessage('All accumulated data has been reset.');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -410,46 +507,29 @@ export default function UploadTrades() {
     setAllMatched([]);
     setAllRemainingOpen([]);
     setProcessedFileCount(0);
-    setMatchedPreviousOpenCount(0); // Reset this counter too
-    
-    // Convert FileList to array and sort by filename (which may contain dates)
+    setMatchedPreviousOpenCount(0);
+    setMoneyMovements([]);
+
+    // Convert FileList to array and sort by filename
     const fileArray = Array.from(files);
-    
-    // Try to extract dates from filenames and sort chronologically
     try {
-      fileArray.sort((a, b) => {
-        // Extract dates from filenames if possible (assuming format like YYYY-MM-DD or similar)
-        const dateA = a.name.match(/\d{4}[-/]\d{1,2}[-/]\d{1,2}/);
-        const dateB = b.name.match(/\d{4}[-/]\d{1,2}[-/]\d{1,2}/);
-        
-        if (dateA && dateB) {
-          return new Date(dateA[0]).getTime() - new Date(dateB[0]).getTime();
-        }
-        
-        // Fallback to alphabetical sorting
-        return a.name.localeCompare(b.name);
-      });
-      
-      console.log("Files sorted for processing:", fileArray.map(f => f.name));
+      fileArray.sort((a, b) => a.name.localeCompare(b.name));
+      console.debug("[Money Movements] Processing files in order:", fileArray.map(f => f.name));
     } catch (error) {
-      console.warn("Error sorting files, using original order:", error);
+      console.warn("Error sorting files:", error);
     }
-    
-    // Initialize tracking of matched previous open trades
-    let totalMatchedFromPrevious = 0;
-    
-    // Use allTrades as a local variable to track matched trades during batch processing
+
     let allTrades: MatchedTrade[] = [];
-    let currentRemainingOpen: any[] = []; // Track current open trades
+    let currentRemainingOpen: any[] = [];
+    let allMoneyMovements: MoneyMovement[] = [];
     let filesProcessed = 0;
-    
+    let totalMatchedFromPrevious = 0;
+
     for (let i = 0; i < fileArray.length; i++) {
       const file = fileArray[i];
       try {
-        // Update progress for each file
         setProcessingProgress(Math.round((i / fileArray.length) * 100));
         
-        // Parse the file
         const results = await new Promise<Papa.ParseResult<Trade>>((resolve, reject) => {
           Papa.parse<Trade>(file, {
             header: true,
@@ -457,9 +537,8 @@ export default function UploadTrades() {
             error: (error) => reject(error)
           });
         });
-        
-        // Process the trades
-        const trades = results.data as Trade[];
+
+        const trades = results.data;
         const trimmedTrades = trades.map(row => {
           const trimmed: Trade = {};
           for (const k in row) {
@@ -467,60 +546,60 @@ export default function UploadTrades() {
           }
           return trimmed;
         });
-        
-        // Match trades - pass the current open trades to consider for matching
+
         const res = await fetch('/api/matchTrades', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             trades: trimmedTrades,
-            previousOpenTrades: currentRemainingOpen // Pass current open trades
+            previousOpenTrades: currentRemainingOpen 
           }),
         });
-        
+
         if (!res.ok) {
           const error = await res.json();
           throw new Error(`Failed to match trades in ${file.name}: ${error.error}`);
         }
-        
-        const data = await res.json();
-        
-        // Calculate how many previously open trades were matched
-        // Only consider matches from previously processed files, not within the current file
-        const previousOpenTradesCount = currentRemainingOpen.length;
-        const newRemainingOpenCount = data.remainingOpenTrades?.length || 0;
-        
-        let matchedFromPrevious = 0;
-        if (i > 0) { // Only calculate if this isn't the first file
-          matchedFromPrevious = previousOpenTradesCount - newRemainingOpenCount + (data.matched?.length || 0) - trimmedTrades.filter(t => 
-            t.Action === 'BUY_TO_CLOSE' || 
-            t.Action === 'SELL_TO_CLOSE' || 
-            (t.Action === 'SELL' && t.Type === 'Trade') ||
-            (t.Action === 'BUY' && t.Type === 'Trade')
-          ).length;
-          
-          // Ensure we don't get negative values
-          matchedFromPrevious = Math.max(0, matchedFromPrevious);
-          
+
+        const data: {
+          matched: MatchedTrade[];
+          remainingOpenTrades: any[];
+          moneyMovements: MoneyMovement[];
+        } = await res.json();
+
+        if (data.moneyMovements && data.moneyMovements.length > 0) {
+          logMoneyMovement(`Found in file ${file.name}`, data.moneyMovements);
+          allMoneyMovements = [...allMoneyMovements, ...data.moneyMovements];
+        }
+
+        // Calculate matches from previous open positions
+        if (i > 0) {
+          const matchedFromPrevious = Math.max(
+            0,
+            currentRemainingOpen.length - (data.remainingOpenTrades?.length || 0) +
+              (data.matched?.length || 0) -
+              trimmedTrades.filter(
+                (t) =>
+                  t.Action === 'BUY_TO_CLOSE' ||
+                  t.Action === 'SELL_TO_CLOSE' ||
+                  (t.Action === 'SELL' && t.Type === 'Trade') ||
+                  (t.Action === 'BUY' && t.Type === 'Trade')
+              ).length
+          );
           totalMatchedFromPrevious += matchedFromPrevious;
         }
-        
-        // Accumulate the matched trades
+
         allTrades = [...allTrades, ...(data.matched || [])];
-        
-        // Update the current open trades with the new remaining open trades
-        // This ensures that each file processes with the latest open positions
         currentRemainingOpen = data.remainingOpenTrades || [];
-        
         filesProcessed++;
-        
-        // Update state with progress
+
         setMessage(`Processed ${filesProcessed} of ${fileArray.length} files. ${allTrades.length} trades matched so far.`);
       } catch (error) {
-        setMessage(`Error processing ${file.name}: ${(error as Error).message}. ${filesProcessed} files processed successfully.`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        setMessage(`Error processing ${file.name}: ${errorMessage}. ${filesProcessed} files processed successfully.`);
         break;
       }
-    }
+    }        
     
     // Update all state variables with the final data
     setAllMatched(allTrades);
@@ -529,19 +608,138 @@ export default function UploadTrades() {
     setRemainingOpen(currentRemainingOpen);
     setProcessedFileCount(filesProcessed);
     setMatchedPreviousOpenCount(totalMatchedFromPrevious);
+    // Update money movements state with all accumulated movements
+    // Validate and sort movements before updating state
+    const validMovements = allMoneyMovements.filter(m => {
+      const isValid = Boolean(m.date) && typeof m.amount === 'number' && !isNaN(m.amount);
+      if (!isValid) {
+        console.warn('[Money Movements] Filtering out invalid movement:', m);
+      }
+      return isValid;
+    });
+
+    // Sort by date (newest first) before updating state
+    const sortedMovements = [...validMovements].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA;
+    });
+
+    console.debug('[Money Movements] About to update state:', {
+      original: allMoneyMovements.length,
+      valid: validMovements.length,
+      sorted: sortedMovements.length,
+      firstDate: sortedMovements[0]?.date,
+      lastDate: sortedMovements[sortedMovements.length - 1]?.date
+    });
+
+    updateMoneyMovements(sortedMovements);
     setProcessingProgress(100);
     
-    const matchedMsg = totalMatchedFromPrevious > 0 
-      ? ` (including ${totalMatchedFromPrevious} trades matched with previously open positions)` 
-      : '';
+    // Log final money movement summary
+    console.debug('[Money Movements] Final accumulated movements:', {
+      totalCount: allMoneyMovements.length,
+      byType: {
+        FUNDS: allMoneyMovements.filter(m => m.type === 'FUNDS' || (m.description || '').toUpperCase().includes('ACH')).length,
+        DIVIDEND: allMoneyMovements.filter(m => m.type === 'DIVIDEND').length,
+        INTEREST: allMoneyMovements.filter(m => m.type === 'INTEREST').length,
+        MARGIN: allMoneyMovements.filter(m => m.type === 'MARGIN').length,
+        MTM: allMoneyMovements.filter(m => m.type === 'MTM').length
+      },
+      movements: allMoneyMovements.map(m => ({
+        type: m.type,
+        description: m.description,
+        amount: m.amount,
+        isACH: (m.description || '').toUpperCase().includes('ACH'),
+        date: m.date
+      }))
+    });
+
+    const matchedMsg = totalMatchedFromPrevious > 0 ? 
+      ` (including ${totalMatchedFromPrevious} trades matched with previously open positions)` : '';
+    const openPositionsMsg = currentRemainingOpen.length > 0 ? 
+      ` Currently tracking ${currentRemainingOpen.length} open positions.` : '';
+    const moneyMovementsMsg = allMoneyMovements.length > 0 ? 
+      ` Found ${allMoneyMovements.length} money movements.` : '';
     
-    const openPositionsMsg = currentRemainingOpen.length > 0
-      ? ` Currently tracking ${currentRemainingOpen.length} open positions.`
-      : '';
-      
-    setMessage(`Batch processing complete. Processed ${filesProcessed} of ${fileArray.length} files. ${allTrades.length} trades matched${matchedMsg}.${openPositionsMsg}`);
+    setMessage(`Batch processing complete. Processed ${filesProcessed} of ${fileArray.length} files. ${allTrades.length} trades matched${matchedMsg}.${openPositionsMsg}${moneyMovementsMsg}`);
     setUploading(false);
   };
+
+  // Debug money movements
+  useEffect(() => {
+    console.log('Money movements state updated:', {
+      hasMovements: moneyMovements && moneyMovements.length > 0,
+      count: moneyMovements?.length || 0,
+      movements: moneyMovements
+    });
+  }, [moneyMovements]);
+
+  // Add debug logging for money movements state updates
+  useEffect(() => {
+    console.debug('[Money Movements] State updated:', {
+      hasMovements: moneyMovements && moneyMovements.length > 0,
+      count: moneyMovements?.length || 0,
+      movements: moneyMovements?.map(m => ({
+        date: m.date,
+        type: m.type,
+        amount: m.amount
+      }))
+    });
+  }, [moneyMovements]);
+
+  // Enhanced debug logging for money movements state
+  useEffect(() => {
+    console.debug('[UploadTrades] Money movements state updated:', {
+      hasMovements: Boolean(moneyMovements && moneyMovements.length > 0),
+      count: moneyMovements?.length || 0,
+      sampleMovements: moneyMovements?.slice(0, 3)?.map(m => ({
+        date: m.date,
+        type: m.type,
+        amount: m.amount,
+        description: m.description
+      }))
+    });
+  }, [moneyMovements]);
+
+  // Watch for money movements in batch processing
+  const updateMoneyMovements = (newMovements: MoneyMovement[]) => {
+    console.debug('[UploadTrades] Setting money movements:', {
+      newCount: newMovements?.length || 0,
+      currentCount: moneyMovements?.length || 0
+    });
+    setMoneyMovements(newMovements);
+  };
+
+  // Compute filtered money movements
+  const filteredMoneyMovements = useMemo(() => {
+    if (!moneyMovements || moneyMovements.length === 0) return [];
+    
+    return moneyMovements.filter(movement => {
+      // Get the year from the movement date
+      const movementYear = movement.date ? 
+        new Date(movement.date).getFullYear().toString() : '';
+      
+      // Apply year filter to all types
+      const yearMatches = yearFilter === 'All Years' || movementYear === yearFilter;
+      
+      // For DIVIDEND type, also apply the underlying filter
+      if (movement.type === 'DIVIDEND') {
+        const filterUnderlyingText = underlyingFilter.toLowerCase();
+        const symbol = (movement.symbol || '').toLowerCase();
+        const description = (movement.description || '').toLowerCase();
+        
+        return yearMatches && (
+          !underlyingFilter || 
+          symbol.includes(filterUnderlyingText) || 
+          description.includes(filterUnderlyingText)
+        );
+      }
+      
+      // For FUNDS, INTEREST, and MARGIN, only apply year filter
+      return yearMatches;
+    });
+  }, [moneyMovements, underlyingFilter, yearFilter]);
 
   return (
     <div className="p-4 border rounded bg-muted">
@@ -619,7 +817,61 @@ export default function UploadTrades() {
           </div>
         </div>
       )}
-      
+
+      {/* Filter Section */}
+      {moneyMovements && moneyMovements.length > 0 && (
+        <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <h3 className="text-lg font-semibold mb-3">Filter Options</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="symbolFilter" className="block text-sm font-medium mb-1">
+                Symbol Filter
+              </label>
+              <input
+                id="symbolFilter"
+                type="text"
+                value={symbolFilter}
+                onChange={(e) => setSymbolFilter(e.target.value)}
+                placeholder="Filter by symbol..."
+                className="w-full px-3 py-2 border rounded-md dark:bg-gray-700"
+              />
+            </div>
+            <div>
+              <label htmlFor="underlyingFilter" className="block text-sm font-medium mb-1">
+                Underlying Filter
+              </label>
+              <input
+                id="underlyingFilter"
+                type="text"
+                value={underlyingFilter}
+                onChange={(e) => setUnderlyingFilter(e.target.value)}
+                placeholder="Filter by underlying..."
+                className="w-full px-3 py-2 border rounded-md dark:bg-gray-700"
+              />
+            </div>
+            <div>
+              <label htmlFor="yearFilter" className="block text-sm font-medium mb-1">
+                Year Filter
+              </label>
+              <select
+                id="yearFilter"
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md dark:bg-gray-700"
+              >
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <MoneyMovementsSummary movements={filteredMoneyMovements} />
+
       {matched && matched.length > 0 && (
         <div className="mb-4">
           <div 
@@ -634,10 +886,10 @@ export default function UploadTrades() {
             <table className="min-w-full border text-black dark:text-white">
               <thead>
                 <tr className="bg-gray-100 dark:bg-gray-700">
+                  <th className="border p-2">Symbol</th>
+                  <th className="border p-2">Underlying</th>
                   <th className="border p-2">Open Date</th>
                   <th className="border p-2">Close Date</th>
-                  <th className="border p-2">Symbol</th>
-                  <th className="border p-2">Underlying Symbol</th>
                   <th className="border p-2">Quantity</th>
                   <th className="border p-2">Open Price</th>
                   <th className="border p-2">Close Price</th>
@@ -648,16 +900,20 @@ export default function UploadTrades() {
                 </tr>
               </thead>
               <tbody>
-                {filteredMatched.map((trade, index) => (
-                  <tr key={index} className={index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'}>
-                    <td className="border p-2">{trade.open_date}</td>
-                    <td className="border p-2">{trade.close_date}</td>
+                {matched.map((trade, idx) => (
+                  <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}>
                     <td className="border p-2">{trade.symbol}</td>
                     <td className="border p-2">{trade.underlying_symbol}</td>
+                    <td className="border p-2">{trade.open_date}</td>
+                    <td className="border p-2">{trade.close_date || 'Open'}</td>
                     <td className="border p-2">{trade.quantity}</td>
                     <td className="border p-2">${typeof trade.open_price === 'number' ? trade.open_price.toFixed(2) : '0.00'}</td>
-                    <td className="border p-2">${typeof trade.close_price === 'number' ? trade.close_price.toFixed(2) : '0.00'}</td>
-                    <td className={`border p-2 ${trade.profit_loss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    <td className="border p-2">
+                      {trade.close_price !== undefined && trade.close_price !== null && Number(trade.close_price) !== 0
+                        ? `$${Number(trade.close_price).toFixed(2)}` 
+                        : '$0.00'}
+                    </td>
+                    <td className={`border p-2 ${typeof trade.profit_loss === 'number' && trade.profit_loss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                       ${typeof trade.profit_loss === 'number' ? trade.profit_loss.toFixed(2) : '0.00'}
                     </td>
                     <td className="border p-2 text-red-600 dark:text-red-400">${typeof trade.commissions === 'number' ? trade.commissions.toFixed(2) : '0.00'}</td>
@@ -752,20 +1008,10 @@ export default function UploadTrades() {
           >
             <div className="flex items-center gap-4">
               <h2 className="text-lg font-semibold">Summary by Underlying Symbol ({summaryByUnderlying.length})</h2>
-              <select
-                className="px-2 py-1 rounded bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600"
-                value={yearFilter}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setYearFilter(e.target.value)}
-                onClick={(e: React.MouseEvent) => e.stopPropagation()} // Prevent collapsing when clicking the dropdown
-              >
-                {availableYears.map((year: string) => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
             </div>
             <span>{summaryCollapsed ? '▼' : '▲'}</span>
           </div>
-          
+
           {!summaryCollapsed && (
             <table className="min-w-full border text-black dark:text-white">
               <thead>
@@ -823,45 +1069,9 @@ export default function UploadTrades() {
           )}
         </div>
       )}
-      
-      {message && <div className="mt-2 text-sm">{message}</div>}
-      
+            
       {(showConfirm || processedFileCount > 0) && allMatched.length > 0 && (
         <div className="mt-4">
-          <div className="flex gap-4 mb-4">
-            <input
-              type="text"
-              placeholder="Filter by symbol..."
-              className="border p-2 rounded"
-              value={symbolFilter}
-              onChange={e => setSymbolFilter(e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Filter by underlying..."
-              className="border p-2 rounded"
-              value={underlyingFilter}
-              onChange={e => setUnderlyingFilter(e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Filter by date..."
-              className="border p-2 rounded"
-              value={dateFilter}
-              onChange={e => setDateFilter(e.target.value)}
-            />
-            <select
-              value={yearFilter}
-              onChange={e => setYearFilter(e.target.value)}
-              className="border p-2 rounded"
-            >
-              {/* Years array for the dropdown */}
-              {['All Years', ...Array.from({ length: 20 }, (_, i) => (2015 + i).toString())].map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-          </div>
-          
           <div 
             className="flex items-center justify-between cursor-pointer bg-gray-100 dark:bg-gray-700 p-2 rounded-t border border-b-0"
             onClick={() => setMatchedTradesCollapsed(!matchedTradesCollapsed)}
