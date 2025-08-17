@@ -878,7 +878,7 @@ export default function UploadTrades() {
             className="flex items-center justify-between cursor-pointer bg-gray-100 dark:bg-gray-700 p-2 rounded-t border border-b-0"
             onClick={() => setMatchedTradesPreviewCollapsed(!matchedTradesPreviewCollapsed)}
           >
-            <h2 className="text-lg font-semibold">Matched Trades Preview ({matched.length})</h2>
+            <h2 className="text-lg font-semibold">Matched Trades Preview ({filteredMatched.length})</h2>
             <span>{matchedTradesPreviewCollapsed ? '▼' : '▲'}</span>
           </div>
           
@@ -900,7 +900,7 @@ export default function UploadTrades() {
                 </tr>
               </thead>
               <tbody>
-                {matched.map((trade, idx) => (
+                {filteredMatched.map((trade, idx) => (
                   <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}>
                     <td className="border p-2">{trade.symbol}</td>
                     <td className="border p-2">{trade.underlying_symbol}</td>
