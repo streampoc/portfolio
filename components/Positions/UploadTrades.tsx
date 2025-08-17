@@ -1,8 +1,12 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useMemo, memo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
 import MoneyMovementsSummary from '../MoneyMovements/MoneyMovementsSummary';
+import { useUser } from '@/lib/auth';
+import { useToast } from '@/hooks/use-toast';
+import { set } from 'zod';
 
 type Trade = Record<string, string>;
 type MatchedTrade = {
@@ -38,6 +42,9 @@ type MoneyMovement = {
 };
 
 export default function UploadTrades() {
+  const router = useRouter();
+  const { user } = useUser();
+  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -52,6 +59,9 @@ export default function UploadTrades() {
   const [matchedPreviousOpenCount, setMatchedPreviousOpenCount] = useState<number>(0);
   const [processingProgress, setProcessingProgress] = useState<number>(0);
   const [moneyMovements, setMoneyMovements] = useState<MoneyMovement[]>([]);
+  const [brokerAccounts, setBrokerAccounts] = useState<Array<{ id: number; broker_name: string; account_number: string }>>([]);
+  const [selectedBrokerAccount, setSelectedBrokerAccount] = useState<string>('');
+  const [selectedBrokerText, setSelectedBrokerText] = useState<string>('');
   
   // Debug logging for money movements detail
   const logMoneyMovements = (description: string, movements: MoneyMovement[] | undefined) => {
@@ -320,7 +330,8 @@ export default function UploadTrades() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               trades: trimmedTrades,
-              previousOpenTrades: allRemainingOpen
+              previousOpenTrades: allRemainingOpen,
+              brokerId: selectedBrokerAccount
             }),
           });
           
@@ -424,42 +435,170 @@ export default function UploadTrades() {
     if (allMatched.length === 0) return;
     
     try {
-      setUploading(true);
-      // Create form data from all the original files
-      const formData = new FormData();
+      //setUploading(true);
+
+      // Prepare the CSV data
+      const csvRows = [];
       
-      if (fileInputRef.current?.files) {
-        const files = fileInputRef.current.files;
-        for (let i = 0; i < files.length; i++) {
-          formData.append('files', files[i]);
-        }
-      }
+      // Add header row
+      csvRows.push([
+        "id", "transaction_type", "open_date", "close_date", "symbol", "underlying_symbol",
+        "quantity", "open_price", "close_price", "buy_value", "sell_value", "profit_loss",
+        "is_closed", "commissions", "fees", "open_year", "close_year", "open_month",
+        "close_month", "open_week", "close_week", "account", "user_id", "creation_date", "updated_date"
+      ]);
+
+      let rowIndex = 1;
       
-      const res = await fetch('/api/uploadTrades', {
-        method: 'POST',
-        body: formData,
+      // Process money movements
+      moneyMovements.forEach((movement) => {
+        const date = new Date(movement.date);
+        const weekRange = `${movement.date.split('T')[0]} to ${new Date(date.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`;
+        
+        csvRows.push([
+          "",//rowIndex.toString(),
+          "Money",
+          date.toISOString(),
+          date.toISOString(),
+          movement.type,
+          movement.type,
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          movement.amount.toString(),
+          "true",
+          "0",
+          "0",
+          date.getFullYear().toString(),
+          date.getFullYear().toString(),
+          (date.getMonth() + 1).toString(),
+          (date.getMonth() + 1).toString(),
+          weekRange,
+          weekRange,
+          selectedBrokerText,
+          user?.id?.toString() || '',
+          new Date().toISOString(),
+          new Date().toISOString()
+        ]);
+        rowIndex++;
+      });
+      
+      // Process matched trades
+      allMatched.forEach((trade) => {
+        const openDate = new Date(trade.open_date);
+        const closeDate = new Date(trade.close_date);
+        const openWeekRange = `${trade.open_date.split('T')[0]} to ${new Date(openDate.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`;
+        const closeWeekRange = `${trade.close_date.split('T')[0]} to ${new Date(closeDate.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`;
+        
+        csvRows.push([
+          "",//rowIndex.toString(),
+          "Trade",
+          openDate.toISOString(),
+          closeDate.toISOString(),
+          trade.symbol,
+          trade.underlying_symbol,
+          trade.quantity.toString(),
+          trade.open_price.toString(),
+          trade.close_price.toString(),
+          (trade.quantity * Math.abs(trade.open_price)).toString(),
+          (trade.quantity * Math.abs(trade.close_price)).toString(),
+          trade.profit_loss.toString(),
+          "true",
+          trade.commissions.toString(),
+          trade.fees.toString(),
+          openDate.getFullYear().toString(),
+          closeDate.getFullYear().toString(),
+          (openDate.getMonth() + 1).toString(),
+          (closeDate.getMonth() + 1).toString(),
+          openWeekRange,
+          closeWeekRange,
+          selectedBrokerText,
+          user?.id?.toString() || '',
+          new Date().toISOString(),
+          new Date().toISOString()
+        ]);
+        rowIndex++;
       });
 
-      if (res.ok) {
-        setMessage(`${processedFileCount} ${processedFileCount === 1 ? 'file' : 'files'} with ${allMatched.length} trades uploaded successfully!`);
-        setShowConfirm(false);
-        setMatched(null);
-        setRawRows(null);
-        setAllMatched([]);
-        setAllRemainingOpen([]);
-        setProcessedFileCount(0);
-        setFileCount(0);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      } else {
-        const error = await res.text();
-        setMessage('Error uploading trades: ' + error);
-      }
+      // Process remaining open trades
+      allRemainingOpen.forEach((trade) => {
+        const openDate = new Date(trade.Date);
+        const openWeekRange = `${trade.Date.split('T')[0]} to ${new Date(openDate.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`;
+        
+        csvRows.push([
+          "",//rowIndex.toString(),
+          "Trade",
+          openDate.toISOString(),
+          "", // No close date for open trades
+          trade.Symbol,
+          trade['Underlying Symbol'] || trade.Symbol,
+          trade.remainingQty.toString(),
+          trade['Average Price'].toString(),
+          "", // No close price for open trades
+          (parseFloat(trade.remainingQty) * Math.abs(parseFloat(trade['Average Price']))).toString(),
+          "", // No sell value for open trades
+          "", // No profit/loss for open trades
+          "false", // Not closed
+          trade.Commissions || "0",
+          trade.Fees || "0",
+          openDate.getFullYear().toString(),
+          "", // No close year for open trades
+          (openDate.getMonth() + 1).toString(),
+          "", // No close month for open trades
+          openWeekRange,
+          "", // No close week for open trades
+          selectedBrokerText,
+          user?.id?.toString() || '',
+          new Date().toISOString(),
+          new Date().toISOString()
+        ]);
+        rowIndex++;
+      });
+
+      // Convert to CSV string and ensure data format matches PostgreSQL requirements
+      const csvContent = csvRows.map(row => 
+        row.map(cell => {
+          if (cell === null || cell === undefined) return '""';
+          // For dates and regular values, keep them as is
+          return `"${cell.toString().replace(/"/g, '""')}"`;
+        })
+        .join(',')
+      ).join('\n');
+
+      // Create a blob with the CSV content
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      
+      // Create a link to download the CSV
+      const fileName = `trades_${new Date().toISOString().split('T')[0]}.csv`;
+      link.setAttribute('href', window.URL.createObjectURL(blob));
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Create FormData for upload
+      const formData = new FormData();
+      formData.append('trades', new Blob([csvContent], { type: 'text/csv' }), fileName);
+      formData.append('brokerId', selectedBrokerAccount);
+
+      setMessage('Trades saved to CSV successfully.');
+      setShowConfirm(false);
+
     } catch (error) {
-      setMessage('Error uploading trades: ' + (error as Error).message);
+      const errorMessage = 'Error saving trades: ' + (error as Error).message;
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      setMessage(errorMessage);
+      setShowConfirm(false);
     } finally {
-      setUploading(false);
+      //setUploading(false);
     }
   };
 
@@ -484,6 +623,7 @@ export default function UploadTrades() {
     setMatched(null);
     setRawRows(null);
     setProcessingProgress(0);
+    setRemainingOpen(null);
     setMoneyMovements([]);
     setMessage('All accumulated data has been reset.');
     if (fileInputRef.current) {
@@ -493,6 +633,10 @@ export default function UploadTrades() {
 
   // Process all files at once
   const handleProcessAllFiles = async () => {
+    if (!validateBrokerSelection()) {
+      return;
+    }
+
     const files = fileInputRef.current?.files;
     if (!files || files.length === 0) {
       setMessage("No files selected.");
@@ -552,7 +696,8 @@ export default function UploadTrades() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             trades: trimmedTrades,
-            previousOpenTrades: currentRemainingOpen 
+            previousOpenTrades: currentRemainingOpen,
+            brokerId: selectedBrokerAccount
           }),
         });
 
@@ -741,9 +886,89 @@ export default function UploadTrades() {
     });
   }, [moneyMovements, underlyingFilter, yearFilter]);
 
+  useEffect(() => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    const fetchBrokerAccounts = async () => {
+      try {
+        const response = await fetch('/api/getBrokerAccounts');
+        if (!response.ok) throw new Error('Failed to fetch broker accounts');
+        const data = await response.json();
+        setBrokerAccounts(data);
+      } catch (error) {
+        console.error('Error fetching broker accounts:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load broker accounts',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    fetchBrokerAccounts();
+  }, [user, router, toast]);
+
+  // Check if broker is selected before processing
+  const validateBrokerSelection = () => {
+    if (!selectedBrokerAccount) {
+      toast({
+        title: 'Required',
+        description: 'Please select a broker account before processing files',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    return true;
+  };
+
+  // Modify handleFileChange to include broker validation
+  const handleFileChangeWithValidation = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!validateBrokerSelection()) {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+    await handleFileChange(e);
+  };
+
+  // Modify handleProcessAllFiles to include broker validation
+  const handleProcessAllFilesWithValidation = async () => {
+    if (!validateBrokerSelection()) {
+      return;
+    }
+    await handleProcessAllFiles();
+  };
+
   return (
     <div className="p-4 border rounded bg-muted">
       <h2 className="font-bold mb-2">Upload Trades CSV</h2>
+      
+      {/* Add broker account selection */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-1">
+          Select Broker Account
+        </label>
+        <select
+          value={selectedBrokerAccount}
+          onChange={(e) => {
+            const account = brokerAccounts.find(a => a.id.toString() === e.target.value);
+            setSelectedBrokerAccount(e.target.value);
+            setSelectedBrokerText(account ? `${account.broker_name}-${account.account_number}` : '');
+          }}
+          className="w-full px-3 py-2 border rounded-md dark:bg-gray-700"
+        >
+          <option value="">Select a broker account</option>
+          {brokerAccounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.broker_name} - {account.account_number}
+            </option>
+          ))}
+        </select>
+      </div>
       
       <div className="flex items-center gap-2 mb-4">
         <input
@@ -751,13 +976,13 @@ export default function UploadTrades() {
           accept=".csv"
           multiple
           ref={fileInputRef}
-          onChange={handleFileChange}
+          onChange={handleFileChangeWithValidation}
           disabled={uploading}
           className="mb-2"
         />
         
         <button
-          onClick={handleProcessAllFiles}
+          onClick={handleProcessAllFilesWithValidation}
           className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:opacity-50"
           disabled={uploading}
         >
@@ -977,21 +1202,21 @@ export default function UploadTrades() {
       )}
       
       {showConfirm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full">
-            <h2 className="text-lg font-semibold mb-4">Confirm Upload</h2>
-            <p className="mb-4">You have matched {allMatched.length} trades across {processedFileCount} files. Do you want to upload these trades?</p>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full border dark:border-gray-700">
+            <h2 className="text-lg font-semibold mb-4 dark:text-white">Confirm Upload</h2>
+            <p className="mb-4 dark:text-gray-300">You have matched {allMatched.length} trades across {processedFileCount} files. Do you want to upload these trades?</p>
             
-            <div className="flex justify-end">
+            <div className="flex justify-end space-x-2">
               <button
                 onClick={handleConfirm}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md mr-2"
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
               >
                 Confirm
               </button>
               <button
                 onClick={handleCancel}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md"
+                className="bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-md hover:bg-gray-400 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>

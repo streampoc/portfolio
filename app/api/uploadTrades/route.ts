@@ -1,21 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parse } from 'csv-parse/sync';
-import { getUser } from '@/lib/db/queries';
+import { validateOrThrow } from '@/lib/auth/middleware';
+import { validateBrokerAccount } from '@/lib/db/queries';
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const filesEntries = formData.getAll('files');
+    const brokerId = formData.get('brokerId');
     
     if (!filesEntries.length) {
       return NextResponse.json({ error: 'No files uploaded.' }, { status: 400 });
     }
 
-    // Get user from session
-    const user = await getUser();
-    if (!user || !user.id) {
-      return NextResponse.json({ error: 'User not authenticated.' }, { status: 401 });
+    if (!brokerId) {
+      return NextResponse.json({ error: 'Broker account selection is required.' }, { status: 400 });
     }
+
+    // Validate user session
+    const user = await validateOrThrow(req);
+
+    // Validate broker account ownership
+    await validateBrokerAccount(user, parseInt(brokerId.toString()));
     
     // Process all files
     const results = [];

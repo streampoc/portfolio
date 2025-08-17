@@ -2,6 +2,15 @@ import { z } from 'zod';
 import { User } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
 import { redirect } from 'next/navigation';
+import { type NextRequest } from 'next/server';
+
+export async function validateOrThrow(req: NextRequest): Promise<User> {
+  const user = await getUser();
+  if (!user || !user.id) {
+    throw new Error('User not authenticated.');
+  }
+  return user;
+}
 
 export type ActionState = {
   error?: string;

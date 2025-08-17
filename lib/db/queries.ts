@@ -39,7 +39,6 @@ export async function getUser() {
   }
 
   export async function getUserAccounts(user:User) {
-
     const userAccounts = await db
       .select()
       .from(brokers)
@@ -50,4 +49,24 @@ export async function getUser() {
     }
   
     return userAccounts;
+  }
+
+  export async function validateBrokerAccount(user: User, brokerId: number) {
+    const account = await db
+      .select()
+      .from(brokers)
+      .where(
+        and(
+          eq(brokers.id, brokerId),
+          eq(brokers.email, user.email),
+          isNull(brokers.deletedAt)
+        )
+      )
+      .limit(1);
+
+    if (account.length === 0) {
+      throw new Error('Broker account not found or not authorized.');
+    }
+
+    return account[0];
   }
