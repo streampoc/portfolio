@@ -17,7 +17,9 @@ const DataCard: React.FC<DataCardProps> = ({ title, value, amount, className }) 
     <Card className={`${className} p-4 transition-all duration-200`}>
       <CardContent className="p-0">
         <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{title}</div>
-        <div className={`text-lg font-bold ${textColorClass}`}>${value}</div>
+        <div className={`text-lg font-bold ${textColorClass}`}>
+          {value.startsWith('$') || value.startsWith('-$') ? value : `$${value}`}
+        </div>
       </CardContent>
     </Card>
   );

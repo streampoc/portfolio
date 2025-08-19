@@ -79,8 +79,8 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
     fetchData();
   }, [appliedFilters]);
 
-  const formatCurrency = (value: number | null): string => {
-    if (value === null || isNaN(value)) return 'N/A';
+  const formatCurrency = (value: number | null | undefined): string => {
+    if (value === null || value === undefined || isNaN(value)) return 'N/A';
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   };
 
@@ -173,43 +173,43 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ onContentLoaded }) => {
               <TouchFriendlyTooltip
                 key="LTPL"
                 content={
-                  <p key="LTPL_1">Lifetime profit/loss {lifeSummaryData.life_profit_loss.toFixed(2)}</p>
+                  <p key="LTPL_1">Lifetime profit/loss {formatCurrency(lifeSummaryData.life_profit_loss)}</p>
                 }
               >
                 <DataCard
                   title={`Lifetime P/L`}
-                  value={`${lifeSummaryData.life_profit_loss?.toFixed(2)}`}
+                  value={formatCurrency(lifeSummaryData.life_profit_loss)}
                   amount={lifeSummaryData.life_profit_loss}
                   className="bg-white dark:bg-gray-800 w-full"
-                  aria-label={`Lifetime P/L is ${lifeSummaryData.life_profit_loss}`}
+                  aria-label={`Lifetime P/L is ${formatCurrency(lifeSummaryData.life_profit_loss)}`}
                 />
               </TouchFriendlyTooltip>
               <TouchFriendlyTooltip
                 key="LTC"
                 content={
-                  <p key="LTC_1">Lifetime cash {lifeSummaryData.life_cash}</p>
+                  <p key="LTC_1">Lifetime cash {formatCurrency(lifeSummaryData.life_cash)}</p>
                 }
               >
                 <DataCard
                   title={`Lifetime Cash`}
-                  value={`${lifeSummaryData.life_cash}`}
+                  value={formatCurrency(lifeSummaryData.life_cash)}
                   amount={lifeSummaryData.life_cash}
                   className="bg-white dark:bg-gray-800 w-full"
-                  aria-label={`Lifetime Cash is ${lifeSummaryData.life_cash}`}
+                  aria-label={`Lifetime Cash is ${formatCurrency(lifeSummaryData.life_cash)}`}
                 />
             </TouchFriendlyTooltip>
             <TouchFriendlyTooltip
               key="LTI"
               content={
-                <p key="LTI_1">Lifetime interest {lifeSummaryData.life_interest?.toFixed(2)}</p>
+                <p key="LTI_1">Lifetime interest {formatCurrency(lifeSummaryData.life_interest)}</p>
               }
             >
               <DataCard
                 title={`Lifetime Interest`}
-                value={`${lifeSummaryData.life_interest?.toFixed(2)}`}
+                value={formatCurrency(lifeSummaryData.life_interest)}
                 amount={lifeSummaryData.life_interest}
                 className="bg-white dark:bg-gray-800 w-full"
-                aria-label={`Lifetime Interest is ${lifeSummaryData.life_interest}`}
+                aria-label={`Lifetime Interest is ${formatCurrency(lifeSummaryData.life_interest)}`}
               />
             </TouchFriendlyTooltip>
           </>
