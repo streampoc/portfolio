@@ -23,6 +23,33 @@ type MatchedTrade = {
   account: string;
 };
 
+type TradeToInsert = {
+  transaction_type: string;
+  open_date: string;
+  close_date: string | null;
+  symbol: string;
+  underlying_symbol: string;
+  quantity: number;
+  open_price: number;
+  close_price: number | null;
+  buy_value: number;
+  sell_value: number | null;
+  profit_loss: number | null;
+  is_closed: boolean;
+  commissions: number;
+  fees: number;
+  open_year: number;
+  close_year: number | null;
+  open_month: number;
+  close_month: number | null;
+  open_week: string;
+  close_week: string | null;
+  account: string;
+  user_id: string;
+  creation_date: string;
+  updated_date: string;
+};
+
 // Type for summary data
 type SummaryRow = {
   underlying_symbol: string;
@@ -35,6 +62,7 @@ type SummaryRow = {
 type MoneyMovement = {
   date: string;
   symbol: string;
+  underlying_symbol: string;
   type: string;
   amount: number;
   description: string;
@@ -213,24 +241,42 @@ export default function UploadTrades() {
     });
   }, [remainingOpen, symbolFilter, underlyingFilter, dateFilter, yearFilter]);
 
+  // Compute filtered money movements
+  const filteredMoneyMovements = useMemo(() => {
+    if (!moneyMovements || moneyMovements.length === 0) return [];
+    
+    return moneyMovements.filter(movement => {
+      // Get the year from the movement date
+      const movementYear = movement.date ? 
+        new Date(movement.date).getFullYear().toString() : '';
+      
+      // Apply year filter to all types
+      const yearMatches = yearFilter === 'All Years' || movementYear === yearFilter;
+      
+      // For DIVIDEND type, also apply the underlying filter
+      if (movement.type === 'DIVIDEND') {
+        const filterUnderlyingText = underlyingFilter.toLowerCase();
+        const symbol = (movement.underlying_symbol || '').toLowerCase();
+        const description = (movement.description || '').toLowerCase();
+        
+        return yearMatches && (
+          !underlyingFilter || 
+          symbol.includes(filterUnderlyingText) || 
+          description.includes(filterUnderlyingText)
+        );
+      }
+      
+      // For FUNDS, INTEREST, and MARGIN, only apply year filter
+      return yearMatches;
+    });
+  }, [moneyMovements, underlyingFilter, yearFilter]);
+
   // Calculate P/L summary by underlying symbol using filtered trades
   const summaryByUnderlying = useMemo(() => {
     const summary = new Map<string, SummaryRow>();
     
     // Add realized P/L from matched trades
     if (filteredMatched.length > 0) {
-      // Debug log for commissions and fees
-      if (filteredMatched.length > 0) {
-/*         console.log('Sample trade for summary calculation:', {
-          symbol: filteredMatched[0].symbol,
-          profit_loss: filteredMatched[0].profit_loss,
-          commissions: filteredMatched[0].commissions,
-          fees: filteredMatched[0].fees,
-          commissions_type: typeof filteredMatched[0].commissions,
-          fees_type: typeof filteredMatched[0].fees
-        }); */
-      }
-      
       filteredMatched.forEach(trade => {
         const underlying = trade.underlying_symbol;
         if (!summary.has(underlying)) {
@@ -247,6 +293,32 @@ export default function UploadTrades() {
         row.realized += typeof trade.profit_loss === 'number' ? trade.profit_loss : 0;
         row.commissions += typeof trade.commissions === 'number' ? trade.commissions : 0;
         row.fees += typeof trade.fees === 'number' ? trade.fees : 0;
+      });
+    }
+    
+    // Add dividend movements to realized P/L for matching underlying symbols
+    if (filteredMoneyMovements) {
+      filteredMoneyMovements.forEach(movement => {
+        // Only process DIVIDEND type movements
+        if (movement.type === 'DIVIDEND') {
+          // Try to match the underlying symbol from the movement's symbol or underlying_symbol
+          const dividendSymbol = movement.underlying_symbol || movement.symbol || '';
+          
+          // Create a new summary row if it doesn't exist for this symbol
+          if (!summary.has(dividendSymbol)) {
+            summary.set(dividendSymbol, {
+              underlying_symbol: dividendSymbol,
+              realized: 0,
+              unrealized: 0,
+              commissions: 0,
+              fees: 0
+            });
+          }
+          
+          // Add the dividend to realized P/L
+          const row = summary.get(dividendSymbol)!;
+          row.realized += typeof movement.amount === 'number' ? movement.amount : 0;
+        }
       });
     }
     
@@ -275,14 +347,6 @@ export default function UploadTrades() {
         if (isEquity && !isNaN(quantity) && !isNaN(openPrice)) {
           // For equities, calculate as Open Price * Quantity
           row.unrealized += openPrice * quantity;
-          
-          // Log the calculation for debugging
-          /* console.log('Equity unrealized P/L calculation:', {
-            symbol: trade.Symbol,
-            quantity,
-            openPrice,
-            calculated: openPrice * quantity
-          }); */
         } else {
           // For non-equity positions, use the Value field as before
           const value = parseFloat(trade.Value || '0');
@@ -432,57 +496,66 @@ export default function UploadTrades() {
   };
   
   const handleSave = async () => {
-    if (allMatched.length === 0) return;
+    if (allMatched.length === 0 && allRemainingOpen.length === 0 && moneyMovements.length === 0) {
+      toast({
+        title: "Error",
+        description: "No trades or movements to save",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
-      //setUploading(true);
-
-      // Prepare the CSV data
-      const csvRows = [];
+      setUploading(true);
       
-      // Add header row
-      csvRows.push([
-        "id", "transaction_type", "open_date", "close_date", "symbol", "underlying_symbol",
-        "quantity", "open_price", "close_price", "buy_value", "sell_value", "profit_loss",
-        "is_closed", "commissions", "fees", "open_year", "close_year", "open_month",
-        "close_month", "open_week", "close_week", "account", "user_id", "creation_date", "updated_date"
-      ]);
-
-      let rowIndex = 1;
+      // Prepare trades data for database insertion
+      const tradesToInsert: TradeToInsert[] = [];
       
       // Process money movements
       moneyMovements.forEach((movement) => {
         const date = new Date(movement.date);
         const weekRange = `${movement.date.split('T')[0]} to ${new Date(date.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`;
         
-        csvRows.push([
-          "",//rowIndex.toString(),
-          "Money",
-          date.toISOString(),
-          date.toISOString(),
-          movement.type,
-          movement.type,
-          "1",
-          "0",
-          "0",
-          "0",
-          "0",
-          movement.amount.toString(),
-          "true",
-          "0",
-          "0",
-          date.getFullYear().toString(),
-          date.getFullYear().toString(),
-          (date.getMonth() + 1).toString(),
-          (date.getMonth() + 1).toString(),
-          weekRange,
-          weekRange,
-          selectedBrokerText,
-          user?.id?.toString() || '',
-          new Date().toISOString(),
-          new Date().toISOString()
-        ]);
-        rowIndex++;
+        // Ensure symbol and underlying_symbol are not empty
+        const symbol = movement.symbol || 'INTEREST';
+        const underlyingSymbol = movement.underlying_symbol || 'INTEREST';
+        
+        console.log('Processing money movement:', {
+          originalSymbol: movement.symbol,
+          originalUnderlyingSymbol: movement.underlying_symbol,
+          finalSymbol: symbol,
+          finalUnderlyingSymbol: underlyingSymbol,
+          type: movement.type,
+          amount: movement.amount
+        });
+        
+        // Money movements are always considered closed since they are one-time transactions
+        tradesToInsert.push({
+          transaction_type: "Money",
+          open_date: date.toISOString(),
+          close_date: date.toISOString(), // Same as open date for money movements
+          symbol: symbol,
+          underlying_symbol: underlyingSymbol,
+          quantity: 1,
+          open_price: 0,
+          close_price: 0,
+          buy_value: 0,
+          sell_value: 0,
+          profit_loss: movement.amount,
+          is_closed: true, // Money movements are always closed
+          commissions: 0,
+          fees: 0,
+          open_year: date.getFullYear(),
+          close_year: date.getFullYear(),
+          open_month: date.getMonth() + 1,
+          close_month: date.getMonth() + 1,
+          open_week: weekRange,
+          close_week: weekRange,
+          account: selectedBrokerText,
+          user_id: user?.id?.toString() || '',
+          creation_date: new Date().toISOString(),
+          updated_date: new Date().toISOString()
+        });
       });
       
       // Process matched trades
@@ -492,34 +565,57 @@ export default function UploadTrades() {
         const openWeekRange = `${trade.open_date.split('T')[0]} to ${new Date(openDate.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`;
         const closeWeekRange = `${trade.close_date.split('T')[0]} to ${new Date(closeDate.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`;
         
-        csvRows.push([
-          "",//rowIndex.toString(),
-          "Trade",
-          openDate.toISOString(),
-          closeDate.toISOString(),
-          trade.symbol,
-          trade.underlying_symbol,
-          trade.quantity.toString(),
-          trade.open_price.toString(),
-          trade.close_price.toString(),
-          (trade.quantity * Math.abs(trade.open_price)).toString(),
-          (trade.quantity * Math.abs(trade.close_price)).toString(),
-          trade.profit_loss.toString(),
-          "true",
-          trade.commissions.toString(),
-          trade.fees.toString(),
-          openDate.getFullYear().toString(),
-          closeDate.getFullYear().toString(),
-          (openDate.getMonth() + 1).toString(),
-          (closeDate.getMonth() + 1).toString(),
-          openWeekRange,
-          closeWeekRange,
-          selectedBrokerText,
-          user?.id?.toString() || '',
-          new Date().toISOString(),
-          new Date().toISOString()
-        ]);
-        rowIndex++;
+        // Ensure symbol and underlying_symbol are not empty
+        const symbol = trade.symbol || 'UNKNOWN_SYMBOL';
+        const underlyingSymbol = trade.underlying_symbol || symbol;
+        
+        console.log('Processing matched trade:', {
+          originalSymbol: trade.symbol,
+          originalUnderlyingSymbol: trade.underlying_symbol,
+          finalSymbol: symbol,
+          finalUnderlyingSymbol: underlyingSymbol
+        });
+        
+        // Calculate buy and sell values correctly based on quantity and prices
+        const buyValue = Math.abs(trade.quantity * trade.open_price);
+        const sellValue = Math.abs(trade.quantity * trade.close_price);
+        
+        // Determine if the trade is closed based on having both open and close dates,
+        // close price, and profit/loss calculated
+        const isClosed = Boolean(
+          trade.close_date && 
+          trade.close_price !== null && 
+          trade.close_price !== undefined && 
+          trade.profit_loss !== null && 
+          trade.profit_loss !== undefined
+        );
+        
+        tradesToInsert.push({
+          transaction_type: "Trade",
+          open_date: openDate.toISOString(),
+          close_date: closeDate.toISOString(),
+          symbol: symbol,
+          underlying_symbol: underlyingSymbol,
+          quantity: Math.abs(trade.quantity), // Ensure quantity is positive
+          open_price: Math.abs(trade.open_price), // Store absolute values
+          close_price: Math.abs(trade.close_price),
+          buy_value: buyValue,
+          sell_value: sellValue,
+          profit_loss: trade.profit_loss,
+          is_closed: isClosed,
+          commissions: Math.abs(trade.commissions || 0),
+          fees: Math.abs(trade.fees || 0),
+          open_year: openDate.getFullYear(),
+          close_year: closeDate.getFullYear(),
+          open_month: openDate.getMonth() + 1,
+          close_month: closeDate.getMonth() + 1,
+          open_week: openWeekRange,
+          close_week: closeWeekRange,
+          account: selectedBrokerText,
+          user_id: user?.id?.toString() || '',
+          creation_date: new Date().toISOString(),
+          updated_date: new Date().toISOString()
+        });
       });
 
       // Process remaining open trades
@@ -527,65 +623,82 @@ export default function UploadTrades() {
         const openDate = new Date(trade.Date);
         const openWeekRange = `${trade.Date.split('T')[0]} to ${new Date(openDate.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}`;
         
-        csvRows.push([
-          "",//rowIndex.toString(),
-          "Trade",
-          openDate.toISOString(),
-          "", // No close date for open trades
-          trade.Symbol,
-          trade['Underlying Symbol'] || trade.Symbol,
-          trade.remainingQty.toString(),
-          trade['Average Price'].toString(),
-          "", // No close price for open trades
-          (parseFloat(trade.remainingQty) * Math.abs(parseFloat(trade['Average Price']))).toString(),
-          "", // No sell value for open trades
-          "", // No profit/loss for open trades
-          "false", // Not closed
-          trade.Commissions || "0",
-          trade.Fees || "0",
-          openDate.getFullYear().toString(),
-          "", // No close year for open trades
-          (openDate.getMonth() + 1).toString(),
-          "", // No close month for open trades
-          openWeekRange,
-          "", // No close week for open trades
-          selectedBrokerText,
-          user?.id?.toString() || '',
-          new Date().toISOString(),
-          new Date().toISOString()
-        ]);
-        rowIndex++;
+        // Ensure symbol and underlying_symbol are not empty
+        const symbol = trade.Symbol || 'UNKNOWN_SYMBOL';
+        const underlyingSymbol = trade['Underlying Symbol'] || symbol;
+        
+        console.log('Processing open trade:', {
+          originalSymbol: trade.Symbol,
+          originalUnderlyingSymbol: trade['Underlying Symbol'],
+          finalSymbol: symbol,
+          finalUnderlyingSymbol: underlyingSymbol
+        });
+        
+        tradesToInsert.push({
+          transaction_type: "Trade",
+          open_date: openDate.toISOString(),
+          close_date: null, // No close date for open trades
+          symbol: symbol,
+          underlying_symbol: underlyingSymbol,
+          quantity: parseFloat(trade.remainingQty),
+          open_price: parseFloat(trade['Average Price']),
+          close_price: null, // No close price for open trades
+          buy_value: parseFloat(trade.remainingQty) * Math.abs(parseFloat(trade['Average Price'])),
+          sell_value: null, // No sell value for open trades
+          profit_loss: null, // No profit/loss for open trades
+          is_closed: false, // Not closed
+          commissions: parseFloat(trade.Commissions) || 0,
+          fees: parseFloat(trade.Fees) || 0,
+          open_year: openDate.getFullYear(),
+          close_year: null, // No close year for open trades
+          open_month: openDate.getMonth() + 1,
+          close_month: null, // No close month for open trades
+          open_week: openWeekRange,
+          close_week: null, // No close week for open trades
+          account: selectedBrokerText,
+          user_id: user?.id?.toString() || '',
+          creation_date: new Date().toISOString(),
+          updated_date: new Date().toISOString()
+        });
       });
 
-      // Convert to CSV string and ensure data format matches PostgreSQL requirements
-      const csvContent = csvRows.map(row => 
-        row.map(cell => {
-          if (cell === null || cell === undefined) return '""';
-          // For dates and regular values, keep them as is
-          return `"${cell.toString().replace(/"/g, '""')}"`;
-        })
-        .join(',')
-      ).join('\n');
+      // Debug: Log the trades being sent
+      console.log('Sending trades to API:', {
+        totalTrades: tradesToInsert.length,
+        sampleTrade: tradesToInsert[0],
+        moneyMovementsCount: moneyMovements.length,
+        matchedTradesCount: allMatched.length,
+        openTradesCount: allRemainingOpen.length
+      });
 
-      // Create a blob with the CSV content
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
+      // Final validation before sending
+      const invalidTrades = tradesToInsert.filter(trade => 
+        !trade.transaction_type || !trade.symbol || !trade.underlying_symbol
+      );
       
-      // Create a link to download the CSV
-      const fileName = `trades_${new Date().toISOString().split('T')[0]}.csv`;
-      link.setAttribute('href', window.URL.createObjectURL(blob));
-      link.setAttribute('download', fileName);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Create FormData for upload
-      const formData = new FormData();
-      formData.append('trades', new Blob([csvContent], { type: 'text/csv' }), fileName);
-      formData.append('brokerId', selectedBrokerAccount);
+      if (invalidTrades.length > 0) {
+        console.error('Found invalid trades before sending:', invalidTrades);
+        throw new Error(`Found ${invalidTrades.length} trades with missing required fields`);
+      }
 
-      setMessage('Trades saved to CSV successfully.');
+      // Send trades to API for insertion
+      const response = await fetch('/api/insertTrades', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          trades: tradesToInsert,
+          brokerId: selectedBrokerAccount
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to insert trades');
+      }
+
+      setMessage('Trades saved successfully.');
       setShowConfirm(false);
 
     } catch (error) {
@@ -598,7 +711,7 @@ export default function UploadTrades() {
       setMessage(errorMessage);
       setShowConfirm(false);
     } finally {
-      //setUploading(false);
+      setUploading(false);
     }
   };
 
@@ -856,35 +969,7 @@ export default function UploadTrades() {
     setMoneyMovements(newMovements);
   };
 
-  // Compute filtered money movements
-  const filteredMoneyMovements = useMemo(() => {
-    if (!moneyMovements || moneyMovements.length === 0) return [];
-    
-    return moneyMovements.filter(movement => {
-      // Get the year from the movement date
-      const movementYear = movement.date ? 
-        new Date(movement.date).getFullYear().toString() : '';
-      
-      // Apply year filter to all types
-      const yearMatches = yearFilter === 'All Years' || movementYear === yearFilter;
-      
-      // For DIVIDEND type, also apply the underlying filter
-      if (movement.type === 'DIVIDEND') {
-        const filterUnderlyingText = underlyingFilter.toLowerCase();
-        const symbol = (movement.symbol || '').toLowerCase();
-        const description = (movement.description || '').toLowerCase();
-        
-        return yearMatches && (
-          !underlyingFilter || 
-          symbol.includes(filterUnderlyingText) || 
-          description.includes(filterUnderlyingText)
-        );
-      }
-      
-      // For FUNDS, INTEREST, and MARGIN, only apply year filter
-      return yearMatches;
-    });
-  }, [moneyMovements, underlyingFilter, yearFilter]);
+
 
   useEffect(() => {
     if (!user) {
@@ -1125,27 +1210,42 @@ export default function UploadTrades() {
                 </tr>
               </thead>
               <tbody>
-                {filteredMatched.map((trade, idx) => (
-                  <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}>
-                    <td className="border p-2">{trade.symbol}</td>
-                    <td className="border p-2">{trade.underlying_symbol}</td>
-                    <td className="border p-2">{trade.open_date}</td>
-                    <td className="border p-2">{trade.close_date || 'Open'}</td>
-                    <td className="border p-2">{trade.quantity}</td>
-                    <td className="border p-2">${typeof trade.open_price === 'number' ? trade.open_price.toFixed(2) : '0.00'}</td>
-                    <td className="border p-2">
-                      {trade.close_price !== undefined && trade.close_price !== null && Number(trade.close_price) !== 0
-                        ? `$${Number(trade.close_price).toFixed(2)}` 
-                        : '$0.00'}
-                    </td>
-                    <td className={`border p-2 ${typeof trade.profit_loss === 'number' && trade.profit_loss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      ${typeof trade.profit_loss === 'number' ? trade.profit_loss.toFixed(2) : '0.00'}
-                    </td>
-                    <td className="border p-2 text-red-600 dark:text-red-400">${typeof trade.commissions === 'number' ? trade.commissions.toFixed(2) : '0.00'}</td>
-                    <td className="border p-2 text-red-600 dark:text-red-400">${typeof trade.fees === 'number' ? trade.fees.toFixed(2) : '0.00'}</td>
-                    <td className="border p-2">{trade.account}</td>
-                  </tr>
-                ))}
+                {filteredMatched && filteredMatched.map((trade, idx) => {
+                  // Format dates nicely
+                  const openDate = trade.open_date ? new Date(trade.open_date).toLocaleDateString() : 'N/A';
+                  const closeDate = trade.close_date ? new Date(trade.close_date).toLocaleDateString() : 'Open';
+                  
+                  return (
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}>
+                      <td className="border p-2">{trade.symbol || 'N/A'}</td>
+                      <td className="border p-2">{trade.underlying_symbol || 'N/A'}</td>
+                      <td className="border p-2">{openDate}</td>
+                      <td className="border p-2">{closeDate}</td>
+                      <td className="border p-2">{Math.abs(trade.quantity) || 0}</td>
+                      <td className="border p-2">${typeof trade.open_price === 'number' ? Math.abs(trade.open_price).toFixed(2) : '0.00'}</td>
+                      <td className="border p-2">
+                        {trade.close_price !== undefined && trade.close_price !== null
+                          ? `$${Math.abs(Number(trade.close_price)).toFixed(2)}` 
+                          : '$0.00'}
+                      </td>
+                      <td className={`border p-2 ${typeof trade.profit_loss === 'number' && trade.profit_loss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        ${typeof trade.profit_loss === 'number' ? trade.profit_loss.toFixed(2) : '0.00'}
+                      </td>
+                      <td className="border p-2 text-red-600 dark:text-red-400">${typeof trade.commissions === 'number' ? Math.abs(trade.commissions).toFixed(2) : '0.00'}</td>
+                      <td className="border p-2 text-red-600 dark:text-red-400">${typeof trade.fees === 'number' ? Math.abs(trade.fees).toFixed(2) : '0.00'}</td>
+                      <td className="border p-2">{trade.account || selectedBrokerText || 'N/A'}</td>
+                      <td className="border p-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          trade.close_date && trade.close_price ? 
+                          'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 
+                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                        }`}>
+                          {trade.close_date && trade.close_price ? 'Closed' : 'Open'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

@@ -47,11 +47,12 @@ function preprocessTrade(trade: any) {
     // Handle different types of money movements
     if (normalizedTrade['Instrument Type'] === 'Equity') {
       // Dividends - set type to DIVIDEND to make it consistent
-      normalizedTrade['Underlying Symbol'] = 'DIVIDEND';  // Change this to be consistent
-      normalizedTrade.Symbol = normalizedTrade.Symbol || '';  // Keep original symbol
+      normalizedTrade['Underlying Symbol'] = normalizedTrade.Symbol //'DIVIDEND';  // Change this to be consistent
+      normalizedTrade.Symbol = 'DIVIDEND' //normalizedTrade.Symbol || '';  // Keep original symbol
     } else if (normalizedTrade['Instrument Type'] === 'Future') {
       // Mark to Market
       normalizedTrade.Symbol = 'MTM';
+      normalizedTrade['Underlying Symbol'] = normalizedTrade.Symbol || '';
     } else if (normalizedTrade.Description) {
       if (normalizedTrade.Description.includes('FROM')) {
         // Margin interest
@@ -263,7 +264,8 @@ export async function matchTrades(trades: any[], debugLogs?: string[], previousO
       const movement = {
         date: trade.Date,
         symbol: trade.Symbol,
-        type: trade['Underlying Symbol'] || trade.Symbol || 'FUNDS', // Use the categorized type
+        underlying_symbol: trade['Underlying Symbol'] || '',
+        type: trade.Symbol || 'FUNDS', // Use the categorized type
         amount: parseNumber(trade.Value),
         description: trade.Description,
         account: trade.Account
@@ -272,7 +274,7 @@ export async function matchTrades(trades: any[], debugLogs?: string[], previousO
       // Enhanced logging for money movement creation and validation
       console.log('[Money Movement] Creating new movement:', {
         ...movement,
-        originalType: trade['Underlying Symbol'] || trade.Symbol,
+        //originalType: trade.Symbol,
         isACH: (trade.Description || '').toUpperCase().includes('ACH'),
         rawValue: trade.Value,
         valid: (
