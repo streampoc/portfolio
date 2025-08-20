@@ -47,12 +47,10 @@ export async function POST(request: Request) {
       // Convert trade data to match database schema
     const tradesToInsert = data.trades.map((trade: any) => {
       // Determine if the trade is closed based on the presence of closing data
-      const isClosed = Boolean(
-        trade.close_date && 
-        trade.close_price && 
-        trade.profit_loss !== null && 
-        trade.profit_loss !== undefined
-      );
+      const hasClosePrice = trade.close_price !== null && trade.close_price !== undefined;
+      const hasProfitLoss = trade.profit_loss !== null && trade.profit_loss !== undefined;
+      const hasCloseDate = Boolean(trade.close_date);
+      const isClosed = hasCloseDate && hasClosePrice && hasProfitLoss;
 
       return {
         transaction_type: trade.transaction_type,
@@ -60,21 +58,21 @@ export async function POST(request: Request) {
         close_date: trade.close_date ? new Date(trade.close_date) : null,
         symbol: trade.symbol,
         underlying_symbol: trade.underlying_symbol,
-        quantity: parseFloat(trade.quantity),
-        open_price: parseFloat(trade.open_price),
-        close_price: trade.close_price ? parseFloat(trade.close_price) : null,
-        buy_value: parseFloat(trade.buy_value),
-        sell_value: trade.sell_value ? parseFloat(trade.sell_value) : null,
-        profit_loss: trade.profit_loss ? parseFloat(trade.profit_loss) : null,
+        quantity: Number(trade.quantity),
+        open_price: Number(trade.open_price),
+        close_price: hasClosePrice ? Number(trade.close_price) : null,
+        buy_value: Number(trade.buy_value),
+        sell_value: trade.sell_value !== null && trade.sell_value !== undefined ? Number(trade.sell_value) : null,
+        profit_loss: hasProfitLoss ? Number(trade.profit_loss) : null,
         is_closed: trade.transaction_type === 'Money' ? true : isClosed, // Money movements are always closed
-        commissions: parseFloat(trade.commissions || '0'),
-        fees: parseFloat(trade.fees || '0'),
-        open_year: parseInt(trade.open_year),
-        close_year: trade.close_year ? parseInt(trade.close_year) : null,
-        open_month: parseInt(trade.open_month),
-        close_month: trade.close_month ? parseInt(trade.close_month) : null,
+        commissions: Number(trade.commissions ?? 0),
+        fees: Number(trade.fees ?? 0),
+        open_year: Number(trade.open_year),
+        close_year: trade.close_year !== null && trade.close_year !== undefined ? Number(trade.close_year) : null,
+        open_month: Number(trade.open_month),
+        close_month: trade.close_month !== null && trade.close_month !== undefined ? Number(trade.close_month) : null,
         open_week: trade.open_week,
-        close_week: trade.close_week || null,
+        close_week: trade.close_week ?? null,
         account: trade.account,
         user_id: user.id,
         creation_date: new Date(),

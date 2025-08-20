@@ -583,11 +583,11 @@ export default function UploadTrades() {
         // Determine if the trade is closed based on having both open and close dates,
         // close price, and profit/loss calculated
         const isClosed = Boolean(
-          trade.close_date && 
-          trade.close_price !== null && 
+          trade.close_date /*&& 
+          trade.close_price !== null || 
           trade.close_price !== undefined && 
           trade.profit_loss !== null && 
-          trade.profit_loss !== undefined
+          trade.profit_loss !== undefined*/
         );
         
         tradesToInsert.push({
@@ -603,8 +603,8 @@ export default function UploadTrades() {
           sell_value: sellValue,
           profit_loss: trade.profit_loss,
           is_closed: isClosed,
-          commissions: Math.abs(trade.commissions || 0),
-          fees: Math.abs(trade.fees || 0),
+          commissions: trade.commissions || 0,
+          fees: trade.fees || 0,
           open_year: openDate.getFullYear(),
           close_year: closeDate.getFullYear(),
           open_month: openDate.getMonth() + 1,
@@ -1236,11 +1236,11 @@ export default function UploadTrades() {
                       <td className="border p-2">{trade.account || selectedBrokerText || 'N/A'}</td>
                       <td className="border p-2">
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          trade.close_date && trade.close_price ? 
+                          trade.close_date  ? 
                           'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 
                           'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
                         }`}>
-                          {trade.close_date && trade.close_price ? 'Closed' : 'Open'}
+                          {trade.close_date  ? 'Closed' : 'Open'}
                         </span>
                       </td>
                     </tr>

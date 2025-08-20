@@ -98,7 +98,7 @@ function preprocessTrade(trade: any) {
           normalizedTrade.Action = 'CLOSE';
           normalizedTrade.closePrice = parseNumber(normalizedTrade['Average Price']);
         }
-        if (normalizedTrade.Description.includes("Removal of option")) {
+        if (normalizedTrade.Description.includes("Removal of")) {
           normalizedTrade.isRemoval = true;
           normalizedTrade.ActionNorm = 'CLOSE';
           normalizedTrade.Action = 'CLOSE';
@@ -113,7 +113,7 @@ function preprocessTrade(trade: any) {
       // If none of the above conditions matched, check other cases
       if (!normalizedTrade.Action) {
         const hasSpecialDesc = normalizedTrade.Description && (
-          (!normalizedTrade.Description.includes("Removal of option") || 
+          (!normalizedTrade.Description.includes("Removal of") || 
             normalizedTrade.Description.includes("Cash settlement"))
         );
         
@@ -247,7 +247,7 @@ export async function matchTrades(trades: any[], debugLogs?: string[], previousO
         processed.closePrice = parseNumber(processed['Average Price']);
         // Important: keep the original Average Price for proper matching
         processed['Average Price'] = parseNumber(processed['Average Price']);
-      } else if (processed.Description && processed.Description.includes("Removal of option")) {
+      } else if (processed.Description && processed.Description.includes("Removal of")) {
         processed.isRemoval = true;
         processed.ActionNorm = 'CLOSE';
         processed.Action = 'CLOSE';
