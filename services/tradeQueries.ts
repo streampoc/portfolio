@@ -488,7 +488,7 @@ export async function getDetailsData(filters: any,user:User) {
         SUM(commissions) as closed_commissions,
         SUM(fees) as closed_fees
       FROM trades
-      WHERE is_closed = true AND transaction_type in ('Trade','Money') AND user_id = ${user?.id}
+      WHERE is_closed = true AND underlying_symbol not in ('FUNDS') AND transaction_type in ('Trade','Money') AND user_id = ${user?.id}
       ${filters.account !== 'ALL' ? `AND account = $${paramIndex}` : ''}
       GROUP BY account,underlying_symbol, close_year
     ),

@@ -203,32 +203,12 @@ export function Sidebar({ className, onClose }: SidebarProps) {
     if (onClose) onClose();
   };
 
-  const navLinks = [
-    { href: '/dashboard/home', label: 'Home' },
-    { href: '/dashboard/open-positions', label: 'Open Positions' },
-    { href: '/dashboard/closed-positions', label: 'Closed Positions' },
-    { href: '/dashboard/stocks', label: 'Stocks' },
-    { href: '/dashboard/dividends', label: 'Dividends' },
-    { href: '/dashboard/details', label: 'Details' },
-    { href: '/dashboard/upload-trades', label: 'Upload Trades' },
-  ];
+
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
       <ScrollArea className="flex-grow">
         <div className="space-y-4 p-4">
-          <nav className="flex flex-col space-y-2 mb-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-foreground hover:underline px-2 py-1 rounded hover:bg-muted transition-colors"
-                onClick={onClose}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2">
             {renderSelect('account', 'Account', accounts, filters.account, (value) => handleFilterChange('account', value))}
             {renderSelect('ticker', 'Ticker', tickers, filters.ticker, (value) => handleFilterChange('ticker', value))}
