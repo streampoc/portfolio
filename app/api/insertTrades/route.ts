@@ -29,7 +29,7 @@ export async function POST(request: Request) {
         hasSymbol: !!trade.symbol,
         hasUnderlyingSymbol: !!trade.underlying_symbol
       }); */
-      
+
       if (!trade.transaction_type || !trade.symbol || !trade.underlying_symbol) {
         console.error(`Trade ${i} missing required fields:`, {
           transaction_type: trade.transaction_type,
@@ -37,14 +37,25 @@ export async function POST(request: Request) {
           underlying_symbol: trade.underlying_symbol
         });
         return NextResponse.json(
-          { error: 'Invalid trade data. Missing required fields.', 
-            details: `Trade ${i} missing: transaction_type=${!!trade.transaction_type}, symbol=${!!trade.symbol}, underlying_symbol=${!!trade.underlying_symbol}` }, 
+          {
+            error: 'Invalid trade data. Missing required fields.',
+            details: `Trade ${i} missing: transaction_type=${!!trade.transaction_type}, symbol=${!!trade.symbol}, underlying_symbol=${!!trade.underlying_symbol}`
+          },
           { status: 400 }
         );
       }
     }
 
-      // Convert trade data to match database schema
+    // Handle deletion of old open positions
+    if (data.idsToDelete && Array.isArray(data.idsToDelete) && data.idsToDelete.length > 0) {
+      console.log(`Deleting ${data.idsToDelete.length} old open positions for user ${user.id}`);
+      await db.delete(trades)
+        .where(
+          sql`${trades.id} IN ${data.idsToDelete} AND ${trades.user_id} = ${user.id}`
+        );
+    }
+
+    // Convert trade data to match database schema
     const tradesToInsert = data.trades.map((trade: any) => {
       // Determine if the trade is closed based on the presence of closing data
       const hasClosePrice = trade.close_price !== null && trade.close_price !== undefined;
@@ -81,21 +92,21 @@ export async function POST(request: Request) {
     });    // Insert trades in chunks of 100 to avoid timeout
     const chunkSize = 100;
     const results = [];
-    
+
     for (let i = 0; i < tradesToInsert.length; i += chunkSize) {
       const chunk = tradesToInsert.slice(i, i + chunkSize);
       const result = await db.insert(trades).values(chunk).returning();
       results.push(...result);
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: `Successfully inserted ${results.length} trades`,
       insertedTrades: results.length
     });
 
   } catch (error) {
     console.error('Error in insertTrades API:', error);
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Failed to insert trades',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
